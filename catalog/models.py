@@ -29,6 +29,7 @@ class Movie(models.Model):
 
     video = models.FileField(upload_to="movies/")
     poster = models.ImageField(upload_to="posters/")
+    description = models.CharField(max_length=500)
 
     language = models.ForeignKey(
         Language,
