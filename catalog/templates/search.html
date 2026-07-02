@@ -1,0 +1,392 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search - StreamVid</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-[#0b0b0b] text-white min-h-screen">
+
+    <!-- ================= DESKTOP NAVBAR ================= -->
+
+    <nav class="hidden md:block fixed top-0 left-0 w-full z-50 bg-gradient-to-b from-black/90 to-transparent">
+
+        <div class="max-w-7xl mx-auto flex items-center justify-between px-6 py-5">
+
+            <a href="{% url 'index' %}" class="text-3xl font-bold tracking-wide text-red-600">
+                StreamVid
+            </a>
+
+            <div class="flex gap-10 text-gray-300">
+                <a href="{% url 'index' %}" class="hover:text-white transition">Home</a>
+                <a href="#" class="hover:text-white transition">Movies</a>
+                <a href="#" class="hover:text-white transition">Series</a>
+                <a href="#" class="hover:text-white transition">My List</a>
+            </div>
+
+            <input id="desktopSearch" type="text" placeholder="Search movies..."
+                class="bg-white/10 border border-white/10 rounded-full px-5 py-2 outline-none focus:border-red-500">
+
+            <div id="searchResults"
+                class="absolute right-6 top-20 w-96 bg-[#111] rounded-xl hidden overflow-hidden shadow-2xl">
+            </div>
+        </div>
+
+    </nav>
+
+    <!-- ================= MOBILE BOTTOM NAV ================= -->
+
+     <nav class="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-xl border-t border-white/10">
+
+        <div class="grid grid-cols-5 h-16">
+
+            <a href="{% url 'index' %}" class="flex flex-col items-center justify-center text-gray-400">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l9-9 9 9M5 10v10h14V10" />
+                </svg>
+                <span class="text-xs mt-1">Home</span>
+            </a>
+
+            <a href="{% url 'favorites' %}" class="flex flex-col items-center justify-center text-gray-400">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.636l1.318-1.318a4.5 4.5 0 116.364 6.364L12 20.364l-7.682-7.682a4.5 4.5 0 010-6.364z" />
+                </svg>
+                <span class="text-xs mt-1">Favorites</span>
+            </a>
+
+            <a href="{% url 'search_page' %}" class="flex flex-col items-center justify-center text-gray-400">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <circle cx="11" cy="11" r="7" stroke-width="2" />
+                    <path d="M20 20l-3-3" stroke-width="2" />
+                </svg>
+                <span class="text-xs mt-1">Search</span>
+            </a>
+
+            <a href="{% url 'watch_later' %}" class="flex flex-col items-center justify-center text-gray-400">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span class="text-xs mt-1">Later</span>
+            </a>
+
+            <a href="{% url 'user_logout' %}" class="flex flex-col items-center justify-center text-gray-400">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 6h18M3 14h18M3 18h18" />
+                </svg>
+                <span class="text-xs mt-1">Account</span>
+            </a>
+
+        </div>
+
+    </nav>
+
+    <!-- ================= SEARCH PAGE CONTENT ================= -->
+
+    <main class="pt-28 md:pt-32 pb-24">
+
+        <div class="max-w-6xl mx-auto py-6 px-5">
+
+            <h1 class="text-2xl md:text-3xl font-bold mb-6">
+                Search Movies
+            </h1>
+
+            <div class="relative mb-5">
+
+                <input
+                    id="mobileSearch"
+                    type="text"
+                    placeholder="Search movies..."
+                    autocomplete="off"
+                    class="w-full bg-white/10 border border-white/10 rounded-xl px-5 py-4 text-lg outline-none focus:border-red-500 transition">
+
+                <div id="searchSpinner"
+                    class="hidden absolute right-5 top-1/2 -translate-y-1/2">
+                    <svg class="animate-spin h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                    </svg>
+                </div>
+
+            </div>
+
+            <!-- ================= CUSTOM FILTER DROPDOWNS ================= -->
+
+            <div class="flex flex-wrap items-center gap-3 mb-4">
+
+                <!-- Genre dropdown -->
+                <div class="custom-dropdown relative" data-filter="genre">
+                    <button type="button"
+                        class="dd-trigger flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full pl-4 pr-3 py-2.5 text-sm transition">
+                        <span class="dd-label">Genre</span>
+                        <svg class="w-4 h-4 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    <div class="dd-menu hidden absolute left-0 mt-2 w-56 max-h-72 overflow-y-auto bg-[#141414] border border-white/10 rounded-xl shadow-2xl z-40 py-2">
+                        <div class="dd-option px-4 py-2.5 text-sm hover:bg-red-600/20 cursor-pointer text-white" data-value="">All Genres</div>
+                        {% for genre in genres %}
+                        <div class="dd-option px-4 py-2.5 text-sm hover:bg-red-600/20 cursor-pointer text-gray-300" data-value="{{ genre.name }}">{{ genre.name }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Language dropdown -->
+                <div class="custom-dropdown relative" data-filter="language">
+                    <button type="button"
+                        class="dd-trigger flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full pl-4 pr-3 py-2.5 text-sm transition">
+                        <span class="dd-label">Language</span>
+                        <svg class="w-4 h-4 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    <div class="dd-menu hidden absolute left-0 mt-2 w-56 max-h-72 overflow-y-auto bg-[#141414] border border-white/10 rounded-xl shadow-2xl z-40 py-2">
+                        <div class="dd-option px-4 py-2.5 text-sm hover:bg-red-600/20 cursor-pointer text-white" data-value="">All Languages</div>
+                        {% for language in languages %}
+                        <div class="dd-option px-4 py-2.5 text-sm hover:bg-red-600/20 cursor-pointer text-gray-300" data-value="{{ language.name }}">{{ language.name }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Sort dropdown -->
+                <div class="custom-dropdown relative" data-filter="sort">
+                    <button type="button"
+                        class="dd-trigger flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full pl-4 pr-3 py-2.5 text-sm transition">
+                        <span class="dd-label">Relevance</span>
+                        <svg class="w-4 h-4 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    <div class="dd-menu hidden absolute left-0 mt-2 w-48 bg-[#141414] border border-white/10 rounded-xl shadow-2xl z-40 py-2">
+                        <div class="dd-option px-4 py-2.5 text-sm hover:bg-red-600/20 cursor-pointer text-white" data-value="relevance">Relevance</div>
+                        <div class="dd-option px-4 py-2.5 text-sm hover:bg-red-600/20 cursor-pointer text-gray-300" data-value="newest">Newest</div>
+                        <div class="dd-option px-4 py-2.5 text-sm hover:bg-red-600/20 cursor-pointer text-gray-300" data-value="name_asc">A → Z</div>
+                        <div class="dd-option px-4 py-2.5 text-sm hover:bg-red-600/20 cursor-pointer text-gray-300" data-value="name_desc">Z → A</div>
+                    </div>
+                </div>
+
+                <button id="clearFilters"
+                    class="hidden text-sm text-red-500 hover:text-red-400 px-3 py-2 transition">
+                    Clear Filters ✕
+                </button>
+
+            </div>
+
+            <p id="resultsCount" class="text-sm text-gray-400 mb-6"></p>
+
+            <div id="mobileResults" class="grid grid-cols-2 md:grid-cols-4 gap-5">
+                {% for movie in initial_movies %}
+                <a href="/movie/{{ movie.id }}/" class="group">
+                    <div class="relative rounded-2xl overflow-hidden">
+                        <img src="{{ movie.poster.url }}"
+                            class="h-72 w-full object-cover transition duration-500 group-hover:scale-110"
+                            onerror="this.src='https://via.placeholder.com/300x450/1b1b1b/666?text=No+Poster'">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-0 group-hover:opacity-100 transition duration-300"></div>
+                        <div class="absolute bottom-0 left-0 w-full p-4 translate-y-10 group-hover:translate-y-0 transition">
+                            <h3 class="font-semibold text-lg">{{ movie.name }}</h3>
+                            <p class="text-sm text-gray-300">
+                                {{ movie.genre.name }}{% if movie.language %} · {{ movie.language.name }}{% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+
+            <div id="mobileEmpty" class="hidden mt-16 text-center text-gray-400">
+                <p class="text-lg">No results found</p>
+                <p class="text-sm mt-1">Try a different title, genre, or language</p>
+            </div>
+
+        </div>
+
+    </main>
+
+    <script>
+
+        const input = document.getElementById("mobileSearch");
+        const results = document.getElementById("mobileResults");
+        const empty = document.getElementById("mobileEmpty");
+        const spinner = document.getElementById("searchSpinner");
+        const resultsCount = document.getElementById("resultsCount");
+        const clearBtn = document.getElementById("clearFilters");
+
+        const state = { genre: "", language: "", sort: "relevance" };
+
+        // Show count for the server-rendered initial movies
+        resultsCount.textContent = `${results.children.length} movie${results.children.length !== 1 ? 's' : ''}`;
+
+        // ===== Custom dropdown behavior =====
+        document.querySelectorAll(".custom-dropdown").forEach(dropdown => {
+
+            const trigger = dropdown.querySelector(".dd-trigger");
+            const menu = dropdown.querySelector(".dd-menu");
+            const label = dropdown.querySelector(".dd-label");
+            const arrow = trigger.querySelector("svg");
+            const filterKey = dropdown.dataset.filter;
+
+            trigger.addEventListener("click", (e) => {
+                e.stopPropagation();
+                document.querySelectorAll(".dd-menu").forEach(m => {
+                    if (m !== menu) m.classList.add("hidden");
+                });
+                menu.classList.toggle("hidden");
+                arrow.classList.toggle("rotate-180");
+            });
+
+            dropdown.querySelectorAll(".dd-option").forEach(option => {
+                option.addEventListener("click", () => {
+
+                    const value = option.dataset.value;
+                    const text = option.textContent.trim();
+
+                    state[filterKey] = value;
+                    label.textContent = text;
+
+                    dropdown.querySelectorAll(".dd-option").forEach(o => {
+                        o.classList.remove("text-red-500", "font-medium");
+                        o.classList.add("text-gray-300");
+                    });
+                    option.classList.remove("text-gray-300");
+                    option.classList.add("text-red-500", "font-medium");
+
+                    // highlight trigger when a non-default filter is active
+                    const isDefault = value === "" || value === "relevance";
+                    trigger.classList.toggle("border-red-500", !isDefault);
+                    trigger.classList.toggle("text-red-500", !isDefault);
+
+                    menu.classList.add("hidden");
+                    arrow.classList.remove("rotate-180");
+
+                    runSearch();
+
+                });
+            });
+
+        });
+
+        document.addEventListener("click", () => {
+            document.querySelectorAll(".dd-menu").forEach(m => m.classList.add("hidden"));
+            document.querySelectorAll(".dd-trigger svg").forEach(a => a.classList.remove("rotate-180"));
+        });
+
+        // ===== Search input =====
+        let debounceTimer;
+        input.addEventListener("keyup", () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(runSearch, 300);
+        });
+
+        clearBtn.addEventListener("click", () => {
+            input.value = "";
+            state.genre = "";
+            state.language = "";
+            state.sort = "relevance";
+
+            document.querySelectorAll(".custom-dropdown").forEach(dropdown => {
+                const key = dropdown.dataset.filter;
+                const defaultOption = dropdown.querySelector(`.dd-option[data-value="${key === 'sort' ? 'relevance' : ''}"]`);
+                const label = dropdown.querySelector(".dd-label");
+                const trigger = dropdown.querySelector(".dd-trigger");
+                label.textContent = defaultOption.textContent.trim();
+                trigger.classList.remove("border-red-500", "text-red-500");
+                dropdown.querySelectorAll(".dd-option").forEach(o => {
+                    o.classList.remove("text-red-500", "font-medium");
+                    o.classList.add("text-gray-300");
+                });
+            });
+
+            runSearch();
+        });
+
+        function updateClearVisibility() {
+            const active = input.value.trim().length > 0
+                || state.genre
+                || state.language
+                || state.sort !== "relevance";
+            clearBtn.classList.toggle("hidden", !active);
+        }
+
+        async function runSearch() {
+
+            const q = input.value.trim();
+            updateClearVisibility();
+
+            spinner.classList.remove("hidden");
+
+            const params = new URLSearchParams({ q, genre: state.genre, language: state.language, sort: state.sort });
+
+            try {
+
+                const response = await fetch(`/api/search/?${params.toString()}`);
+                const movies = await response.json();
+
+                results.innerHTML = "";
+
+                if (movies.length === 0) {
+                    empty.classList.remove("hidden");
+                    resultsCount.textContent = "";
+                } else {
+
+                    empty.classList.add("hidden");
+                    resultsCount.textContent = `${movies.length} movie${movies.length !== 1 ? 's' : ''}`;
+
+                    movies.forEach(movie => {
+
+                        results.innerHTML += `
+
+                        <a href="/movie/${movie.id}/" class="group">
+
+                            <div class="relative rounded-2xl overflow-hidden">
+
+                                <img src="${movie.poster}"
+                                    class="h-72 w-full object-cover transition duration-500 group-hover:scale-110"
+                                    onerror="this.src='https://via.placeholder.com/300x450/1b1b1b/666?text=No+Poster'">
+
+                                <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-0 group-hover:opacity-100 transition duration-300"></div>
+
+                                <div class="absolute bottom-0 left-0 w-full p-4 translate-y-10 group-hover:translate-y-0 transition">
+
+                                    <h3 class="font-semibold text-lg">
+                                        ${movie.name}
+                                    </h3>
+
+                                    <p class="text-sm text-gray-300">
+                                        ${movie.genre}${movie.language ? ' · ' + movie.language : ''}
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+                        </a>
+
+                        `;
+
+                    });
+
+                }
+
+            } catch (err) {
+
+                results.innerHTML = "";
+                empty.classList.remove("hidden");
+                console.error("Search request failed:", err);
+
+            } finally {
+
+                spinner.classList.add("hidden");
+
+            }
+
+        }
+
+    </script>
+
+</body>
+
+</html>

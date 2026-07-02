@@ -1,0 +1,226 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ movie.name }} | StreamVid</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-[#0b0b0b] text-white min-h-screen">
+
+    <!-- ================= DESKTOP NAVBAR ================= -->
+
+    <nav class="hidden md:block fixed top-0 left-0 w-full z-50 bg-gradient-to-b from-black/90 to-transparent">
+
+        <div class="max-w-7xl mx-auto flex items-center justify-between px-6 py-5">
+
+            <a href="{% url 'index' %}" class="text-3xl font-bold tracking-wide text-red-600">
+                StreamVid
+            </a>
+
+            <div class="flex gap-10 text-gray-300">
+                <a href="{% url 'index' %}" class="hover:text-white transition">Home</a>
+                <a href="{% url 'favorites' %}" class="hover:text-white transition">Favorites</a>
+                <a href="{% url 'watch_later' %}" class="hover:text-white transition">Watch Later</a>
+                <a href="{% url 'watch_history' %}" class="hover:text-white transition">History</a>
+            </div>
+
+            <a href="{% url 'search_page' %}"
+                class="bg-white/10 border border-white/10 rounded-full p-2.5 hover:border-red-500 transition">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <circle cx="11" cy="11" r="7" stroke-width="2" />
+                    <path d="M20 20l-3-3" stroke-width="2" />
+                </svg>
+            </a>
+
+        </div>
+
+    </nav>
+
+    <!-- ================= MOBILE BOTTOM NAV ================= -->
+
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-xl border-t border-white/10">
+
+        <div class="grid grid-cols-5 h-16">
+
+            <a href="{% url 'index' %}" class="flex flex-col items-center justify-center text-gray-400">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l9-9 9 9M5 10v10h14V10" />
+                </svg>
+                <span class="text-xs mt-1">Home</span>
+            </a>
+
+            <a href="{% url 'favorites' %}" class="flex flex-col items-center justify-center text-gray-400">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.636l1.318-1.318a4.5 4.5 0 116.364 6.364L12 20.364l-7.682-7.682a4.5 4.5 0 010-6.364z" />
+                </svg>
+                <span class="text-xs mt-1">Favorites</span>
+            </a>
+
+            <a href="{% url 'search_page' %}" class="flex flex-col items-center justify-center text-gray-400">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <circle cx="11" cy="11" r="7" stroke-width="2" />
+                    <path d="M20 20l-3-3" stroke-width="2" />
+                </svg>
+                <span class="text-xs mt-1">Search</span>
+            </a>
+
+            <a href="{% url 'watch_later' %}" class="flex flex-col items-center justify-center text-gray-400">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span class="text-xs mt-1">Later</span>
+            </a>
+
+            <a href="{% url 'user_logout' %}" class="flex flex-col items-center justify-center text-gray-400">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 6h18M3 14h18M3 18h18" />
+                </svg>
+                <span class="text-xs mt-1">Account</span>
+            </a>
+
+        </div>
+
+    </nav>
+
+    <!-- ================= MOVIE DETAIL ================= -->
+
+    <main class="pt-24 md:pt-32 pb-24">
+
+    <div class="max-w-7xl mx-auto px-6 md:px-10 lg:px-16 py-6">
+
+        <div class="grid lg:grid-cols-3 gap-10">
+
+            <!-- Poster with Hotstar-style play button -->
+
+            <div>
+
+                <a href="{% url 'play_movie' movie.id %}"
+                    class="group relative block rounded-2xl overflow-hidden shadow-2xl">
+
+                    <img
+                        src="{{ movie.poster.url }}"
+                        class="w-full object-cover transition duration-500 group-hover:scale-105"
+                        onerror="this.src='https://via.placeholder.com/500x750/1b1b1b/666?text=No+Poster'">
+
+                    <!-- Bottom gradient so button/edge reads well on any poster -->
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent"></div>
+
+                    <!-- Play button — Hotstar-style ring outline -->
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <div
+                            class="w-16 h-16 md:w-20 md:h-20 rounded-full border-2 border-white/80 bg-black/30 backdrop-blur-sm
+                                   flex items-center justify-center
+                                   transition-all duration-300
+                                   group-hover:scale-110 group-hover:bg-white group-hover:border-white">
+                            <svg xmlns="http://www.w3.org/2000/svg"
+                                class="w-6 h-6 md:w-7 md:h-7 ml-1 text-white transition-colors duration-300 group-hover:text-black"
+                                fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z" />
+                            </svg>
+                        </div>
+                    </div>
+
+                    <!-- Watch Now label pill, bottom-left, Hotstar-style -->
+                    <div class="absolute bottom-4 left-4">
+                        <span class="flex items-center gap-2 bg-black/50 backdrop-blur-md text-xs font-semibold uppercase tracking-wider px-3 py-1.5 rounded-full border border-white/20">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z" />
+                            </svg>
+                            Watch Now
+                        </span>
+                    </div>
+
+                </a>
+
+            </div>
+
+            <!-- Details -->
+
+            <div class="lg:col-span-2">
+
+                <p class="uppercase tracking-[6px] text-red-500 text-sm mb-3">
+                    Now Streaming
+                </p>
+
+                <h1 class="text-4xl md:text-5xl font-black leading-tight">
+                    {{ movie.name }}
+                </h1>
+
+                <div class="flex flex-wrap gap-6 text-gray-400 mt-6">
+
+                    <span class="flex items-center gap-2">
+                        🎭 {{ movie.genre.name }}
+                    </span>
+
+                    <span class="flex items-center gap-2">
+                        🌐 {{ movie.language.name }}
+                    </span>
+
+                    <span class="flex items-center gap-2">
+                        ⏱ {{ movie.duration }}
+                    </span>
+
+                </div>
+
+                <p class="mt-8 leading-8 text-gray-300 max-w-3xl">
+                    {{ movie.description|default:"No description available." }}
+                </p>
+
+                <!-- Favourite + Watch Later, evenly arranged -->
+
+                <div class="grid grid-cols-2 gap-4 mt-10 max-w-md">
+
+                    {% if movie.id in favorites %}
+
+                    <a href="{% url 'remove_favorite' movie.id %}"
+                        class="flex items-center justify-center gap-2 bg-pink-600/20 border border-pink-500/40 hover:bg-pink-600/30 px-6 py-3.5 rounded-xl transition font-medium">
+                        <span class="text-lg">❤️</span>
+                        <span>Favourited</span>
+                    </a>
+
+                    {% else %}
+
+                    <a href="{% url 'add_favorite' movie.id %}"
+                        class="flex items-center justify-center gap-2 bg-white/10 border border-white/10 hover:bg-white/20 px-6 py-3.5 rounded-xl transition font-medium">
+                        <span class="text-lg">🤍</span>
+                        <span>Favourite</span>
+                    </a>
+
+                    {% endif %}
+
+                    {% if movie.id in watch_later %}
+
+                    <a href="{% url 'remove_watch_later' movie.id %}"
+                        class="flex items-center justify-center gap-2 bg-yellow-600/20 border border-yellow-500/40 hover:bg-yellow-600/30 px-6 py-3.5 rounded-xl transition font-medium">
+                        <span class="text-lg">✓</span>
+                        <span>In Watchlist</span>
+                    </a>
+
+                    {% else %}
+
+                    <a href="{% url 'add_watch_later' movie.id %}"
+                        class="flex items-center justify-center gap-2 bg-white/10 border border-white/10 hover:bg-white/20 px-6 py-3.5 rounded-xl transition font-medium">
+                        <span class="text-lg">⏰</span>
+                        <span>Watch Later</span>
+                    </a>
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</main>
+
+</body>
+
+</html>
