@@ -479,6 +479,21 @@ document.addEventListener('DOMContentLoaded', function () {
   if (hash) showTab(hash);
 });
 
+// ---------------- SIZE FORMATTER ----------------
+
+function formatBytes(bytes) {
+  if (bytes >= 1024 * 1024 * 1024) {
+    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+  }
+  if (bytes >= 1024 * 1024) {
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  }
+  if (bytes >= 1024) {
+    return (bytes / 1024).toFixed(2) + ' KB';
+  }
+  return bytes + ' B';
+}
+
 // ---------------- AJAX UPLOAD WITH PROGRESS (Add/Edit Movie) ----------------
 
 document.querySelectorAll('.ajax-upload-form').forEach(function (form) {
@@ -516,16 +531,39 @@ document.querySelectorAll('.ajax-upload-form').forEach(function (form) {
     xhr.open('POST', url, true);
     xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
 
+    let lastLoaded = 0;
+    let lastTime = Date.now();
+
     xhr.upload.addEventListener('progress', function (event) {
       if (event.lengthComputable) {
         const percent = Math.round((event.loaded / event.total) * 100);
+
         progressBar.style.width = percent + '%';
         progressBar.textContent = percent + '%';
 
+        const uploadedStr = formatBytes(event.loaded);
+        const totalStr = formatBytes(event.total);
+        const pendingStr = formatBytes(event.total - event.loaded);
+
+        // Rough instantaneous speed estimate
+        const now = Date.now();
+        const elapsedSec = (now - lastTime) / 1000;
+        let speedStr = '';
+        if (elapsedSec > 0.5) {
+          const bytesPerSec = (event.loaded - lastLoaded) / elapsedSec;
+          if (bytesPerSec > 0) {
+            speedStr = ' • ' + formatBytes(bytesPerSec) + '/s';
+          }
+          lastLoaded = event.loaded;
+          lastTime = now;
+        }
+
         if (percent < 100) {
-          statusText.textContent = 'Uploading... ' + percent + '%';
+          statusText.textContent =
+            'Uploading: ' + uploadedStr + ' / ' + totalStr +
+            ' (' + pendingStr + ' remaining)' + speedStr;
         } else {
-          statusText.textContent = 'Processing on server, please wait...';
+          statusText.textContent = 'Processing on server, please wait... (' + totalStr + ' uploaded)';
         }
       }
     });
