@@ -1,9 +1,30 @@
-from django.shortcuts import render, get_object_or_404,redirect
-from .models import *
+from functools import wraps
+from django.shortcuts import render, get_object_or_404, redirect
+from django.db.models import Q, Count
+from django.http import JsonResponse
 from django.views.decorators.cache import never_cache
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.decorators import login_required
+from .models import *
 
+
+# ---------------- CUSTOM SESSION AUTH DECORATOR ----------------
+
+def user_login_required(view_func):
+    """
+    Use this on all user-facing views that rely on request.session['user_id'].
+    Django's built-in @login_required won't work here since we're not using
+    Django's authenticate()/login() for regular users.
+    """
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.session.get("user_id"):
+            return redirect("user_login")
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+# ---------------- ADMIN LOGIN (real Django auth) ----------------
 
 def admin_login(request):
 
@@ -36,6 +57,8 @@ def admin_login(request):
         }
     )
 
+
+# ---------------- REGISTER ----------------
 
 @never_cache
 def Register(request):
@@ -81,6 +104,8 @@ def Register(request):
         }
     )
 
+
+# ---------------- USER LOGIN / LOGOUT ----------------
 
 @never_cache
 def user_login(request):
@@ -135,10 +160,6 @@ def user_logout(request):
     return redirect("user_login")
 
 
-from django.shortcuts import render, redirect, get_object_or_404
-from .models import *
-
-
 def get_logged_in_user(request):
     user_id = request.session.get("user_id")
 
@@ -148,13 +169,9 @@ def get_logged_in_user(request):
     return Signup.objects.filter(id=user_id).first()
 
 
-
-from django.db.models import Count
-
-
 # ---------------- HOME ----------------
 
-@login_required
+@user_login_required
 def index(request):
 
     movies = Movie.objects.select_related('genre', 'language').order_by('-id')
@@ -190,7 +207,7 @@ def index(request):
 
 # ---------------- MOVIE DETAILS ----------------
 
-@login_required
+@user_login_required
 def movie_detail(request, movie_id):
 
     movie = get_object_or_404(Movie, id=movie_id)
@@ -216,7 +233,7 @@ def movie_detail(request, movie_id):
 
 # ---------------- PLAY MOVIE ----------------
 
-@login_required
+@user_login_required
 def play_movie(request, movie_id):
 
     movie = get_object_or_404(Movie, id=movie_id)
@@ -254,7 +271,7 @@ def play_movie(request, movie_id):
 
 # ---------------- FAVORITES ----------------
 
-@login_required
+@user_login_required
 def add_favorite(request, movie_id):
 
     movie = get_object_or_404(Movie, id=movie_id)
@@ -267,7 +284,7 @@ def add_favorite(request, movie_id):
     return redirect(request.META.get("HTTP_REFERER", "index"))
 
 
-@login_required
+@user_login_required
 def remove_favorite(request, movie_id):
 
     Favorite.objects.filter(
@@ -278,7 +295,7 @@ def remove_favorite(request, movie_id):
     return redirect(request.META.get("HTTP_REFERER", "favorites"))
 
 
-@login_required
+@user_login_required
 def favorites(request):
 
     favorites = Favorite.objects.filter(
@@ -290,7 +307,7 @@ def favorites(request):
 
 # ---------------- WATCH LATER ----------------
 
-@login_required
+@user_login_required
 def add_watch_later(request, movie_id):
 
     movie = get_object_or_404(Movie, id=movie_id)
@@ -303,7 +320,7 @@ def add_watch_later(request, movie_id):
     return redirect(request.META.get("HTTP_REFERER", "index"))
 
 
-@login_required
+@user_login_required
 def remove_watch_later(request, movie_id):
 
     WatchLater.objects.filter(
@@ -314,7 +331,7 @@ def remove_watch_later(request, movie_id):
     return redirect(request.META.get("HTTP_REFERER", "watch_later"))
 
 
-@login_required
+@user_login_required
 def watch_later(request):
 
     movies = WatchLater.objects.filter(
@@ -324,7 +341,7 @@ def watch_later(request):
     return render(request, "watchlater.html", {"movies": movies})
 
 
-@login_required
+@user_login_required
 def watch_history(request):
 
     history = WatchHistory.objects.filter(
@@ -336,7 +353,7 @@ def watch_history(request):
 
 # ---------------- SEARCH ----------------
 
-@login_required
+@user_login_required
 def search_page(request):
 
     initial_movies = Movie.objects.select_related('genre', 'language').order_by('-id')[:20]
@@ -349,7 +366,7 @@ def search_page(request):
     return render(request, 'search.html', context)
 
 
-@login_required
+@user_login_required
 def api_search(request):
 
     q = request.GET.get('q', '').strip()
