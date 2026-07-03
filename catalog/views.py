@@ -1,20 +1,17 @@
 from functools import wraps
 from django.shortcuts import render, get_object_or_404, redirect
 from django.db.models import Q, Count
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.cache import never_cache
-from django.contrib.auth import authenticate, login
-from django.contrib.auth.decorators import login_required
+from django.conf import settings
 from .models import *
 
 
-# ---------------- CUSTOM SESSION AUTH DECORATOR ----------------
+# ==================== SESSION DECORATORS ====================
 
 def user_login_required(view_func):
     """
-    Use this on all user-facing views that rely on request.session['user_id'].
-    Django's built-in @login_required won't work here since we're not using
-    Django's authenticate()/login() for regular users.
+    Use on all user-facing views relying on request.session['user_id'].
     """
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
@@ -24,8 +21,46 @@ def user_login_required(view_func):
     return wrapper
 
 
-# ---------------- ADMIN LOGIN (real Django auth) ----------------
+def admin_required(view_func):
+    """
+    Use on all admin-facing views relying on request.session['admin_id'].
+    """
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.session.get("admin_id"):
+            return redirect("admin_login")
+        return view_func(request, *args, **kwargs)
+    return wrapper
 
+
+# ==================== ONE-TIME ADMIN SETUP ====================
+
+def setup_admin(request):
+
+    key = request.GET.get("key")
+    username = request.GET.get("username")
+    password = request.GET.get("password")
+
+    if key != settings.ADMIN_SETUP_SECRET:
+        return HttpResponse("Invalid or missing key.", status=403)
+
+    if Admin.objects.exists():
+        return HttpResponse("An admin already exists. Setup is locked.", status=403)
+
+    if not username or not password:
+        return HttpResponse("Provide ?username=...&password=... in the URL.", status=400)
+
+    if len(password) < 8:
+        return HttpResponse("Password must be at least 8 characters.", status=400)
+
+    Admin.objects.create(username=username, password=password)
+
+    return HttpResponse(f"Admin '{username}' created successfully. You can now log in at /admin-panel/login/.")
+
+
+# ==================== ADMIN LOGIN / LOGOUT ====================
+
+@never_cache
 def admin_login(request):
 
     error = ""
@@ -35,19 +70,28 @@ def admin_login(request):
         username = request.POST.get("username")
         password = request.POST.get("password")
 
-        user = authenticate(
-            request,
-            username=username,
-            password=password
-        )
+        if not username or not password:
 
-        if user and user.is_superuser:
+            error = "Please enter username and password."
 
-            login(request, user)
+        else:
 
-            return redirect("knowledge")
+            admin = Admin.objects.filter(username=username).first()
 
-        error = "Invalid admin credentials"
+            if admin is None:
+
+                error = "Invalid admin credentials."
+
+            elif admin.password != password:
+
+                error = "Invalid admin credentials."
+
+            else:
+
+                request.session["admin_id"] = admin.id
+                request.session["admin_username"] = admin.username
+
+                return redirect("manage_panel")
 
     return render(
         request,
@@ -58,7 +102,16 @@ def admin_login(request):
     )
 
 
-# ---------------- REGISTER ----------------
+@never_cache
+def admin_logout(request):
+
+    request.session.pop("admin_id", None)
+    request.session.pop("admin_username", None)
+
+    return redirect("admin_login")
+
+
+# ==================== REGISTER ====================
 
 @never_cache
 def Register(request):
@@ -105,7 +158,7 @@ def Register(request):
     )
 
 
-# ---------------- USER LOGIN / LOGOUT ----------------
+# ==================== USER LOGIN / LOGOUT ====================
 
 @never_cache
 def user_login(request):
@@ -169,7 +222,7 @@ def get_logged_in_user(request):
     return Signup.objects.filter(id=user_id).first()
 
 
-# ---------------- HOME ----------------
+# ==================== HOME ====================
 
 @user_login_required
 def index(request):
@@ -205,7 +258,7 @@ def index(request):
     return render(request, 'index.html', context)
 
 
-# ---------------- MOVIE DETAILS ----------------
+# ==================== MOVIE DETAILS ====================
 
 @user_login_required
 def movie_detail(request, movie_id):
@@ -231,7 +284,7 @@ def movie_detail(request, movie_id):
     )
 
 
-# ---------------- PLAY MOVIE ----------------
+# ==================== PLAY MOVIE ====================
 
 @user_login_required
 def play_movie(request, movie_id):
@@ -269,7 +322,7 @@ def play_movie(request, movie_id):
     )
 
 
-# ---------------- FAVORITES ----------------
+# ==================== FAVORITES ====================
 
 @user_login_required
 def add_favorite(request, movie_id):
@@ -305,7 +358,7 @@ def favorites(request):
     return render(request, "favorites.html", {"favorites": favorites})
 
 
-# ---------------- WATCH LATER ----------------
+# ==================== WATCH LATER ====================
 
 @user_login_required
 def add_watch_later(request, movie_id):
@@ -351,7 +404,7 @@ def watch_history(request):
     return render(request, "history.html", {"history": history})
 
 
-# ---------------- SEARCH ----------------
+# ==================== SEARCH ====================
 
 @user_login_required
 def search_page(request):
@@ -406,3 +459,159 @@ def api_search(request):
     ]
 
     return JsonResponse(data, safe=False)
+
+
+# ==================== SINGLE MANAGE PANEL (GET) ====================
+
+@admin_required
+def manage_panel(request):
+
+    context = {
+        "total_movies": Movie.objects.count(),
+        "total_users": Signup.objects.count(),
+        "total_genres": Genre.objects.count(),
+        "total_languages": Language.objects.count(),
+
+        "movies": Movie.objects.select_related("genre", "language").order_by("-id"),
+        "genres": Genre.objects.annotate(movie_count=Count("movies")).order_by("name"),
+        "languages": Language.objects.annotate(movie_count=Count("movies")).order_by("name"),
+        "users": Signup.objects.order_by("-id"),
+    }
+    return render(request, "admin/manage.html", context)
+
+
+# ==================== MOVIE ACTIONS (POST only, redirect back) ====================
+
+@admin_required
+def movie_add(request):
+    if request.method == "POST":
+
+        name = request.POST.get("name", "").strip()
+        duration = request.POST.get("duration", "").strip()
+        description = request.POST.get("description", "").strip()
+        genre_id = request.POST.get("genre")
+        language_id = request.POST.get("language")
+        poster = request.FILES.get("poster")
+        video = request.FILES.get("video")
+
+        if name and duration and description and genre_id and language_id and poster and video:
+            Movie.objects.create(
+                name=name,
+                duration=duration,
+                description=description,
+                genre_id=genre_id,
+                language_id=language_id,
+                poster=poster,
+                video=video,
+            )
+
+    return redirect("manage_panel")
+
+
+@admin_required
+def movie_edit(request, movie_id):
+    movie = get_object_or_404(Movie, id=movie_id)
+
+    if request.method == "POST":
+
+        name = request.POST.get("name", "").strip()
+        duration = request.POST.get("duration", "").strip()
+        description = request.POST.get("description", "").strip()
+        genre_id = request.POST.get("genre")
+        language_id = request.POST.get("language")
+        poster = request.FILES.get("poster")
+        video = request.FILES.get("video")
+
+        if name and duration and description and genre_id and language_id:
+            movie.name = name
+            movie.duration = duration
+            movie.description = description
+            movie.genre_id = genre_id
+            movie.language_id = language_id
+
+            if poster:
+                movie.poster = poster
+            if video:
+                movie.video = video
+
+            movie.save()
+
+    return redirect("manage_panel")
+
+
+@admin_required
+def movie_delete(request, movie_id):
+    movie = get_object_or_404(Movie, id=movie_id)
+    if request.method == "POST":
+        movie.delete()
+    return redirect("manage_panel")
+
+
+# ==================== GENRE ACTIONS ====================
+
+@admin_required
+def genre_add(request):
+    if request.method == "POST":
+        name = request.POST.get("name", "").strip()
+        if name and not Genre.objects.filter(name=name).exists():
+            Genre.objects.create(name=name)
+    return redirect("manage_panel")
+
+
+@admin_required
+def genre_edit(request, genre_id):
+    genre = get_object_or_404(Genre, id=genre_id)
+    if request.method == "POST":
+        name = request.POST.get("name", "").strip()
+        if name and not Genre.objects.filter(name=name).exclude(id=genre.id).exists():
+            genre.name = name
+            genre.save()
+    return redirect("manage_panel")
+
+
+@admin_required
+def genre_delete(request, genre_id):
+    genre = get_object_or_404(Genre, id=genre_id)
+    if request.method == "POST":
+        genre.delete()
+    return redirect("manage_panel")
+
+
+# ==================== LANGUAGE ACTIONS ====================
+
+@admin_required
+def language_add(request):
+    if request.method == "POST":
+        name = request.POST.get("name", "").strip()
+        if name:
+            Language.objects.create(name=name)
+    return redirect("manage_panel")
+
+
+@admin_required
+def language_edit(request, language_id):
+    language = get_object_or_404(Language, id=language_id)
+    if request.method == "POST":
+        name = request.POST.get("name", "").strip()
+        if name:
+            language.name = name
+            language.save()
+    return redirect("manage_panel")
+
+
+@admin_required
+def language_delete(request, language_id):
+    language = get_object_or_404(Language, id=language_id)
+    if request.method == "POST":
+        language.delete()
+    return redirect("manage_panel")
+
+
+# ==================== USER ACTIONS ====================
+
+@admin_required
+def user_delete(request, user_id):
+    user = get_object_or_404(Signup, id=user_id)
+    if request.method == "POST":
+        user.delete()
+    return redirect("manage_panel")

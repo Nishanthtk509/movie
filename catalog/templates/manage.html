@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Manage Panel</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<style>
+  body { background: #f4f6f9; }
+  .sidebar { min-height: 100vh; background: #1e2433; }
+  .sidebar a {
+    color: #c7cbd6; text-decoration: none; display: block;
+    padding: 0.7rem 1.2rem; border-radius: 6px; margin: 2px 8px; cursor: pointer;
+  }
+  .sidebar a:hover, .sidebar a.active { background: #2f3750; color: #fff; }
+  .sidebar .brand {
+    color: #fff; font-weight: 700; padding: 1.2rem; font-size: 1.2rem;
+    border-bottom: 1px solid #2f3750; margin-bottom: 0.5rem;
+  }
+  .content { padding: 2rem; }
+  .card-stat { border: none; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .tab-section { display: none; }
+  .tab-section.active { display: block; }
+  .poster-thumb { width: 45px; height: 65px; object-fit: cover; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="d-flex">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar" style="width: 230px;">
+    <div class="brand"><i class="bi bi-film"></i> Movie Admin</div>
+    <a onclick="showTab('dashboard')" class="tab-link active" data-tab="dashboard"><i class="bi bi-speedometer2"></i> Dashboard</a>
+    <a onclick="showTab('movies')" class="tab-link" data-tab="movies"><i class="bi bi-camera-reels"></i> Movies</a>
+    <a onclick="showTab('genres')" class="tab-link" data-tab="genres"><i class="bi bi-tags"></i> Genres</a>
+    <a onclick="showTab('languages')" class="tab-link" data-tab="languages"><i class="bi bi-translate"></i> Languages</a>
+    <a onclick="showTab('users')" class="tab-link" data-tab="users"><i class="bi bi-people"></i> Users</a>
+    <hr style="border-color:#2f3750;">
+    <a href="{% url 'admin_logout' %}"><i class="bi bi-box-arrow-right"></i> Logout</a>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="flex-grow-1">
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="tab-section active" id="tab-dashboard">
+        <h3 class="mb-4">Dashboard</h3>
+        <div class="row g-3">
+          <div class="col-md-3">
+            <div class="card card-stat p-3">
+              <div class="text-muted small">Total Movies</div>
+              <div class="fs-2 fw-bold">{{ total_movies }}</div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card card-stat p-3">
+              <div class="text-muted small">Total Users</div>
+              <div class="fs-2 fw-bold">{{ total_users }}</div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card card-stat p-3">
+              <div class="text-muted small">Genres</div>
+              <div class="fs-2 fw-bold">{{ total_genres }}</div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card card-stat p-3">
+              <div class="text-muted small">Languages</div>
+              <div class="fs-2 fw-bold">{{ total_languages }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MOVIES -->
+      <div class="tab-section" id="tab-movies">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h3>Movies</h3>
+          <button class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#addMovieModal">
+            <i class="bi bi-plus-lg"></i> Add Movie
+          </button>
+        </div>
+        <div class="card card-stat p-3">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th>Poster</th><th>Name</th><th>Genre</th><th>Language</th><th>Duration</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for movie in movies %}
+              <tr>
+                <td><img src="{{ movie.poster.url }}" class="poster-thumb"></td>
+                <td>{{ movie.name }}</td>
+                <td>{{ movie.genre.name }}</td>
+                <td>{{ movie.language.name }}</td>
+                <td>{{ movie.duration }}</td>
+                <td class="text-end">
+                  <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editMovieModal{{ movie.id }}">Edit</button>
+                  <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteMovieModal{{ movie.id }}">Delete</button>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="6" class="text-center text-muted py-4">No movies yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- GENRES -->
+      <div class="tab-section" id="tab-genres">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h3>Genres</h3>
+          <button class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#addGenreModal">
+            <i class="bi bi-plus-lg"></i> Add Genre
+          </button>
+        </div>
+        <div class="card card-stat p-3">
+          <table class="table align-middle">
+            <thead><tr><th>Name</th><th>Movies</th><th class="text-end">Actions</th></tr></thead>
+            <tbody>
+              {% for genre in genres %}
+              <tr>
+                <td>{{ genre.name }}</td>
+                <td>{{ genre.movie_count }}</td>
+                <td class="text-end">
+                  <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editGenreModal{{ genre.id }}">Edit</button>
+                  <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteGenreModal{{ genre.id }}">Delete</button>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="3" class="text-center text-muted py-4">No genres yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- LANGUAGES -->
+      <div class="tab-section" id="tab-languages">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h3>Languages</h3>
+          <button class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#addLanguageModal">
+            <i class="bi bi-plus-lg"></i> Add Language
+          </button>
+        </div>
+        <div class="card card-stat p-3">
+          <table class="table align-middle">
+            <thead><tr><th>Name</th><th>Movies</th><th class="text-end">Actions</th></tr></thead>
+            <tbody>
+              {% for language in languages %}
+              <tr>
+                <td>{{ language.name }}</td>
+                <td>{{ language.movie_count }}</td>
+                <td class="text-end">
+                  <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editLanguageModal{{ language.id }}">Edit</button>
+                  <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteLanguageModal{{ language.id }}">Delete</button>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="3" class="text-center text-muted py-4">No languages yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- USERS -->
+      <div class="tab-section" id="tab-users">
+        <h3 class="mb-4">Users</h3>
+        <div class="card card-stat p-3">
+          <table class="table align-middle">
+            <thead><tr><th>ID</th><th>Username</th><th class="text-end">Actions</th></tr></thead>
+            <tbody>
+              {% for user in users %}
+              <tr>
+                <td>{{ user.id }}</td>
+                <td>{{ user.username }}</td>
+                <td class="text-end">
+                  <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteUserModal{{ user.id }}">Delete</button>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="3" class="text-center text-muted py-4">No users yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ===================== MODALS ===================== -->
+
+<!-- ADD MOVIE -->
+<div class="modal fade" id="addMovieModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form method="POST" action="{% url 'movie_add' %}" enctype="multipart/form-data" class="modal-content">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h5 class="modal-title">Add Movie</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3"><label class="form-label">Name</label><input type="text" name="name" class="form-control" required></div>
+        <div class="mb-3"><label class="form-label">Duration</label><input type="text" name="duration" class="form-control" placeholder="e.g. 2h 15m" required></div>
+        <div class="mb-3"><label class="form-label">Description</label><textarea name="description" class="form-control" rows="3" required></textarea></div>
+        <div class="row">
+          <div class="col-6 mb-3">
+            <label class="form-label">Genre</label>
+            <select name="genre" class="form-select" required>
+              <option value="">-- Select --</option>
+              {% for g in genres %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-6 mb-3">
+            <label class="form-label">Language</label>
+            <select name="language" class="form-select" required>
+              <option value="">-- Select --</option>
+              {% for l in languages %}<option value="{{ l.id }}">{{ l.name }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="mb-3"><label class="form-label">Poster</label><input type="file" name="poster" class="form-control" required></div>
+        <div class="mb-3"><label class="form-label">Video</label><input type="file" name="video" class="form-control" required></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-dark">Save Movie</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- EDIT / DELETE MOVIE (per row) -->
+{% for movie in movies %}
+<div class="modal fade" id="editMovieModal{{ movie.id }}" tabindex="-1">
+  <div class="modal-dialog">
+    <form method="POST" action="{% url 'movie_edit' movie.id %}" enctype="multipart/form-data" class="modal-content">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Movie</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3"><label class="form-label">Name</label><input type="text" name="name" class="form-control" value="{{ movie.name }}" required></div>
+        <div class="mb-3"><label class="form-label">Duration</label><input type="text" name="duration" class="form-control" value="{{ movie.duration }}" required></div>
+        <div class="mb-3"><label class="form-label">Description</label><textarea name="description" class="form-control" rows="3" required>{{ movie.description }}</textarea></div>
+        <div class="row">
+          <div class="col-6 mb-3">
+            <label class="form-label">Genre</label>
+            <select name="genre" class="form-select" required>
+              {% for g in genres %}<option value="{{ g.id }}" {% if movie.genre_id == g.id %}selected{% endif %}>{{ g.name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-6 mb-3">
+            <label class="form-label">Language</label>
+            <select name="language" class="form-select" required>
+              {% for l in languages %}<option value="{{ l.id }}" {% if movie.language_id == l.id %}selected{% endif %}>{{ l.name }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Poster (leave blank to keep current)</label>
+          <input type="file" name="poster" class="form-control">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Video (leave blank to keep current)</label>
+          <input type="file" name="video" class="form-control">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-dark">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal fade" id="deleteMovieModal{{ movie.id }}" tabindex="-1">
+  <div class="modal-dialog">
+    <form method="POST" action="{% url 'movie_delete' movie.id %}" class="modal-content">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h5 class="modal-title">Delete Movie</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        Delete <strong>{{ movie.name }}</strong>? This cannot be undone.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-danger">Yes, Delete</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endfor %}
+
+<!-- ADD GENRE -->
+<div class="modal fade" id="addGenreModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form method="POST" action="{% url 'genre_add' %}" class="modal-content">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h5 class="modal-title">Add Genre</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="text" name="name" class="form-control" placeholder="Genre name" required>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-dark">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- EDIT / DELETE GENRE (per row) -->
+{% for genre in genres %}
+<div class="modal fade" id="editGenreModal{{ genre.id }}" tabindex="-1">
+  <div class="modal-dialog">
+    <form method="POST" action="{% url 'genre_edit' genre.id %}" class="modal-content">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Genre</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="text" name="name" class="form-control" value="{{ genre.name }}" required>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-dark">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal fade" id="deleteGenreModal{{ genre.id }}" tabindex="-1">
+  <div class="modal-dialog">
+    <form method="POST" action="{% url 'genre_delete' genre.id %}" class="modal-content">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h5 class="modal-title">Delete Genre</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        Delete <strong>{{ genre.name }}</strong>? Movies in this genre will also be deleted.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-danger">Yes, Delete</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endfor %}
+
+<!-- ADD LANGUAGE -->
+<div class="modal fade" id="addLanguageModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form method="POST" action="{% url 'language_add' %}" class="modal-content">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h5 class="modal-title">Add Language</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="text" name="name" class="form-control" placeholder="Language name" required>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-dark">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- EDIT / DELETE LANGUAGE (per row) -->
+{% for language in languages %}
+<div class="modal fade" id="editLanguageModal{{ language.id }}" tabindex="-1">
+  <div class="modal-dialog">
+    <form method="POST" action="{% url 'language_edit' language.id %}" class="modal-content">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Language</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="text" name="name" class="form-control" value="{{ language.name }}" required>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-dark">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal fade" id="deleteLanguageModal{{ language.id }}" tabindex="-1">
+  <div class="modal-dialog">
+    <form method="POST" action="{% url 'language_delete' language.id %}" class="modal-content">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h5 class="modal-title">Delete Language</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        Delete <strong>{{ language.name }}</strong>? Movies in this language will also be deleted.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-danger">Yes, Delete</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endfor %}
+
+<!-- DELETE USER (per row) -->
+{% for user in users %}
+<div class="modal fade" id="deleteUserModal{{ user.id }}" tabindex="-1">
+  <div class="modal-dialog">
+    <form method="POST" action="{% url 'user_delete' user.id %}" class="modal-content">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h5 class="modal-title">Delete User</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        Delete user <strong>{{ user.username }}</strong>? Their favorites, watch-later list, and history will also be deleted.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-danger">Yes, Delete</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endfor %}
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+<script>
+function showTab(tab) {
+  document.querySelectorAll('.tab-section').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-link').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.querySelector('.tab-link[data-tab="' + tab + '"]').classList.add('active');
+  localStorage.setItem('activeTab', tab); // note: sessionStorage/localStorage don't persist across server redirects reliably in all contexts, kept simple here
+}
+
+// Restore last active tab after a redirect (e.g. after form submit) using a URL hash instead of localStorage for reliability
+document.addEventListener('DOMContentLoaded', function () {
+  const hash = window.location.hash.replace('#', '');
+  if (hash) showTab(hash);
+});
+</script>
+
+</body>
+</html>
