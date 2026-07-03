@@ -81,11 +81,9 @@ WSGI_APPLICATION = 'streamvid_config.wsgi.application'
 # }
 
 from pathlib import Path
-from decouple import Config, RepositoryEnv
+from decouple import config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-config = Config(RepositoryEnv(BASE_DIR.parent / ".env"))
 
 DATABASES = {
     "default": {
@@ -93,7 +91,7 @@ DATABASES = {
         "NAME": config("DB_NAME"),
         "USER": config("DB_USER"),
         "PASSWORD": config("DB_PASSWORD"),
-        "HOST": config("DB_HOST", default="localhost"),
+        "HOST": config("DB_HOST"),
         "PORT": config("DB_PORT", default="5432"),
     }
 }
