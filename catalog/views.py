@@ -481,6 +481,9 @@ def manage_panel(request):
 
 
 # ==================== MOVIE ACTIONS (POST only, redirect back) ====================
+def wants_json(request):
+    return request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
 
 @admin_required
 def movie_add(request):
@@ -504,6 +507,12 @@ def movie_add(request):
                 poster=poster,
                 video=video,
             )
+            if wants_json(request):
+                return JsonResponse({"status": "ok"})
+            return redirect("manage_panel")
+
+        if wants_json(request):
+            return JsonResponse({"status": "error", "message": "All fields are required."}, status=400)
 
     return redirect("manage_panel")
 
@@ -536,8 +545,14 @@ def movie_edit(request, movie_id):
 
             movie.save()
 
-    return redirect("manage_panel")
+            if wants_json(request):
+                return JsonResponse({"status": "ok"})
+            return redirect("manage_panel")
 
+        if wants_json(request):
+            return JsonResponse({"status": "error", "message": "Required fields missing."}, status=400)
+
+    return redirect("manage_panel")
 
 @admin_required
 def movie_delete(request, movie_id):

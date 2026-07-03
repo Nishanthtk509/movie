@@ -22,6 +22,8 @@
   .tab-section { display: none; }
   .tab-section.active { display: block; }
   .poster-thumb { width: 45px; height: 65px; object-fit: cover; border-radius: 4px; }
+  .upload-progress-wrap { display: none; }
+  .upload-status-text { font-size: 0.85rem; }
 </style>
 </head>
 <body>
@@ -202,7 +204,7 @@
 <!-- ADD MOVIE -->
 <div class="modal fade" id="addMovieModal" tabindex="-1">
   <div class="modal-dialog">
-    <form method="POST" action="{% url 'movie_add' %}" enctype="multipart/form-data" class="modal-content">
+    <form class="ajax-upload-form modal-content" data-url="{% url 'movie_add' %}" enctype="multipart/form-data">
       {% csrf_token %}
       <div class="modal-header">
         <h5 class="modal-title">Add Movie</h5>
@@ -230,6 +232,13 @@
         </div>
         <div class="mb-3"><label class="form-label">Poster</label><input type="file" name="poster" class="form-control" required></div>
         <div class="mb-3"><label class="form-label">Video</label><input type="file" name="video" class="form-control" required></div>
+
+        <div class="mb-2 upload-progress-wrap">
+          <div class="progress" style="height: 20px;">
+            <div class="progress-bar bg-dark upload-progress-bar" role="progressbar" style="width: 0%;">0%</div>
+          </div>
+          <div class="form-text upload-status-text">Uploading...</div>
+        </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -243,7 +252,7 @@
 {% for movie in movies %}
 <div class="modal fade" id="editMovieModal{{ movie.id }}" tabindex="-1">
   <div class="modal-dialog">
-    <form method="POST" action="{% url 'movie_edit' movie.id %}" enctype="multipart/form-data" class="modal-content">
+    <form class="ajax-upload-form modal-content" data-url="{% url 'movie_edit' movie.id %}" enctype="multipart/form-data">
       {% csrf_token %}
       <div class="modal-header">
         <h5 class="modal-title">Edit Movie</h5>
@@ -274,6 +283,13 @@
         <div class="mb-3">
           <label class="form-label">Video (leave blank to keep current)</label>
           <input type="file" name="video" class="form-control">
+        </div>
+
+        <div class="mb-2 upload-progress-wrap">
+          <div class="progress" style="height: 20px;">
+            <div class="progress-bar bg-dark upload-progress-bar" role="progressbar" style="width: 0%;">0%</div>
+          </div>
+          <div class="form-text upload-status-text">Uploading...</div>
         </div>
       </div>
       <div class="modal-footer">
@@ -456,13 +472,103 @@ function showTab(tab) {
   document.querySelectorAll('.tab-link').forEach(el => el.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
   document.querySelector('.tab-link[data-tab="' + tab + '"]').classList.add('active');
-  localStorage.setItem('activeTab', tab); // note: sessionStorage/localStorage don't persist across server redirects reliably in all contexts, kept simple here
 }
 
-// Restore last active tab after a redirect (e.g. after form submit) using a URL hash instead of localStorage for reliability
 document.addEventListener('DOMContentLoaded', function () {
   const hash = window.location.hash.replace('#', '');
   if (hash) showTab(hash);
+});
+
+// ---------------- AJAX UPLOAD WITH PROGRESS (Add/Edit Movie) ----------------
+
+document.querySelectorAll('.ajax-upload-form').forEach(function (form) {
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    const url = form.dataset.url;
+    const formData = new FormData(form);
+    const modalEl = form.closest('.modal');
+
+    const progressWrap = form.querySelector('.upload-progress-wrap');
+    const progressBar = form.querySelector('.upload-progress-bar');
+    const statusText = form.querySelector('.upload-status-text');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const cancelBtn = form.querySelector('[data-bs-dismiss="modal"]');
+    const closeBtn = form.querySelector('.btn-close');
+
+    // Lock modal so it can't be dismissed mid-upload
+    modalEl.setAttribute('data-bs-backdrop', 'static');
+    modalEl.setAttribute('data-bs-keyboard', 'false');
+
+    progressWrap.style.display = 'block';
+    progressBar.classList.remove('bg-danger');
+    progressBar.classList.add('bg-dark');
+    progressBar.style.width = '0%';
+    progressBar.textContent = '0%';
+    statusText.textContent = 'Starting upload...';
+
+    submitBtn.disabled = true;
+    if (cancelBtn) cancelBtn.disabled = true;
+    if (closeBtn) closeBtn.disabled = true;
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url, true);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+    xhr.upload.addEventListener('progress', function (event) {
+      if (event.lengthComputable) {
+        const percent = Math.round((event.loaded / event.total) * 100);
+        progressBar.style.width = percent + '%';
+        progressBar.textContent = percent + '%';
+
+        if (percent < 100) {
+          statusText.textContent = 'Uploading... ' + percent + '%';
+        } else {
+          statusText.textContent = 'Processing on server, please wait...';
+        }
+      }
+    });
+
+    xhr.onload = function () {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        statusText.textContent = 'Done! Refreshing...';
+        window.location.href = window.location.pathname + '#movies';
+        window.location.reload();
+      } else {
+        submitBtn.disabled = false;
+        if (cancelBtn) cancelBtn.disabled = false;
+        if (closeBtn) closeBtn.disabled = false;
+        modalEl.setAttribute('data-bs-backdrop', 'true');
+        modalEl.setAttribute('data-bs-keyboard', 'true');
+
+        let message = 'Upload failed. Please try again.';
+        try {
+          const data = JSON.parse(xhr.responseText);
+          if (data.message) message = data.message;
+        } catch (err) {}
+
+        statusText.textContent = message;
+        progressBar.classList.remove('bg-dark');
+        progressBar.classList.add('bg-danger');
+      }
+    };
+
+    xhr.onerror = function () {
+      submitBtn.disabled = false;
+      if (cancelBtn) cancelBtn.disabled = false;
+      if (closeBtn) closeBtn.disabled = false;
+      modalEl.setAttribute('data-bs-backdrop', 'true');
+      modalEl.setAttribute('data-bs-keyboard', 'true');
+
+      statusText.textContent = 'Connection error. Please check your network and try again.';
+      progressBar.classList.remove('bg-dark');
+      progressBar.classList.add('bg-danger');
+    };
+
+    xhr.send(formData);
+  });
+
 });
 </script>
 
