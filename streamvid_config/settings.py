@@ -140,3 +140,8 @@ MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+import os
+
+ADMIN_SETUP_SECRET = os.environ.get("ADMIN_SETUP_SECRET", "change-this-to-something-long-and-random")
+
