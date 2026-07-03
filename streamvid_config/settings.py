@@ -80,7 +80,13 @@ WSGI_APPLICATION = 'streamvid_config.wsgi.application'
 #     }
 # }
 
-from decouple import config
+from pathlib import Path
+from decouple import Config, RepositoryEnv
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+config = Config(RepositoryEnv(BASE_DIR.parent / ".env"))
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
