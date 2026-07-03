@@ -477,7 +477,7 @@ def manage_panel(request):
         "languages": Language.objects.annotate(movie_count=Count("movies")).order_by("name"),
         "users": Signup.objects.order_by("-id"),
     }
-    return render(request, "admin/manage.html", context)
+    return render(request, "manage.html", context)
 
 
 # ==================== MOVIE ACTIONS (POST only, redirect back) ====================
