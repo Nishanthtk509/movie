@@ -1,0 +1,82 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamVid - Watch Later</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+
+<body class="bg-[#0b0b0b] text-white">
+
+<div class="pt-6 md:pt-0 pb-10">
+
+    <h2 class="text-2xl md:text-3xl font-bold mb-6">My Watch Later</h2>
+
+    {% if movies %}
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
+
+            {% for item in movies %}
+
+            <div class="group relative rounded-lg overflow-hidden bg-[#141414]">
+
+                <a href="/movie/{{ item.movie.id }}/">
+                    <img src="{{ item.movie.poster }}" alt="{{ item.movie.name }}"
+                        class="w-full aspect-[2/3] object-cover group-hover:scale-105 transition duration-300">
+                </a>
+
+                <div class="p-3">
+                    <h4 class="font-semibold text-sm truncate">{{ item.movie.name }}</h4>
+                    <p class="text-xs text-gray-400 truncate">{{ item.movie.genre }}</p>
+                </div>
+
+                <form method="post" action="{% url 'remove_watch_later' item.movie.id %}"
+                    class="absolute top-2 right-2">
+                    {% csrf_token %}
+                    <button type="submit"
+                        class="bg-black/70 hover:bg-red-600 transition rounded-full p-2"
+                        title="Remove from Watch Later">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none"
+                            viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </form>
+
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+    {% else %}
+
+        <div class="flex flex-col items-center justify-center text-center py-24 text-gray-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 mb-4 text-gray-600" fill="none"
+                viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p class="text-lg">Your Watch Later list is empty.</p>
+            <a href="{% url 'index' %}" class="mt-4 px-5 py-2 bg-red-600 hover:bg-red-700 rounded-full text-sm font-semibold transition">
+                Browse Movies
+            </a>
+        </div>
+
+    {% endif %}
+
+</div>
+
+</body>
+
+</html>

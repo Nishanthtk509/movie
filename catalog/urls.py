@@ -51,6 +51,8 @@ urlpatterns = [
 
     # Watch History
     path("history/", views.watch_history, name="watch_history"),
+    path("account/", views.account, name="account"),
+    path("account/change-password/", views.change_password, name="change_password"),
     path("logout/", views.user_logout, name="user_logout"),
 
         # admin auth

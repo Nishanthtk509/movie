@@ -16,7 +16,7 @@ def user_login_required(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.session.get("user_id"):
-            return redirect("user_login")
+            return redirect("login")
         return view_func(request, *args, **kwargs)
     return wrapper
 
@@ -210,7 +210,40 @@ def user_logout(request):
     request.session.pop("user_id", None)
     request.session.pop("username", None)
 
-    return redirect("user_login")
+    return redirect("login")
+
+
+@user_login_required
+def account(request):
+    return render(request, "account.html", {})
+
+
+@user_login_required
+def change_password(request):
+
+    if request.method == "POST":
+
+        current_password = request.POST.get("current_password")
+        new_password = request.POST.get("new_password")
+        confirm_password = request.POST.get("confirm_password")
+
+        user = Signup.objects.filter(id=request.session["user_id"]).first()
+
+        if user.password != current_password:
+            return render(request, "account.html", {"error": "Current password is incorrect."})
+
+        elif new_password != confirm_password:
+            return render(request, "account.html", {"error": "New passwords do not match."})
+
+        elif not new_password:
+            return render(request, "account.html", {"error": "New password cannot be empty."})
+
+        else:
+            user.password = new_password
+            user.save()
+            return render(request, "account.html", {"success": "Password updated successfully."})
+
+    return redirect("account")
 
 
 def get_logged_in_user(request):
