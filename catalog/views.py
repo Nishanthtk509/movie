@@ -518,6 +518,86 @@ def wants_json(request):
     return request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
 
+# @admin_required
+# def movie_add(request):
+#     if request.method == "POST":
+
+#         name = request.POST.get("name", "").strip()
+#         duration = request.POST.get("duration", "").strip()
+#         description = request.POST.get("description", "").strip()
+#         genre_id = request.POST.get("genre")
+#         language_id = request.POST.get("language")
+#         poster = request.FILES.get("poster")
+#         video = request.FILES.get("video")
+
+#         if name and duration and description and genre_id and language_id and poster and video:
+#             Movie.objects.create(
+#                 name=name,
+#                 duration=duration,
+#                 description=description,
+#                 genre_id=genre_id,
+#                 language_id=language_id,
+#                 poster=poster,
+#                 video=video,
+#             )
+#             if wants_json(request):
+#                 return JsonResponse({"status": "ok"})
+#             return redirect("manage_panel")
+
+#         if wants_json(request):
+#             return JsonResponse({"status": "error", "message": "All fields are required."}, status=400)
+
+#     return redirect("manage_panel")
+
+
+# @admin_required
+# def movie_edit(request, movie_id):
+#     movie = get_object_or_404(Movie, id=movie_id)
+
+#     if request.method == "POST":
+
+#         name = request.POST.get("name", "").strip()
+#         duration = request.POST.get("duration", "").strip()
+#         description = request.POST.get("description", "").strip()
+#         genre_id = request.POST.get("genre")
+#         language_id = request.POST.get("language")
+#         poster = request.FILES.get("poster")
+#         video = request.FILES.get("video")
+
+#         if name and duration and description and genre_id and language_id:
+#             movie.name = name
+#             movie.duration = duration
+#             movie.description = description
+#             movie.genre_id = genre_id
+#             movie.language_id = language_id
+
+#             if poster:
+#                 movie.poster = poster
+#             if video:
+#                 movie.video = video
+
+#             movie.save()
+
+#             if wants_json(request):
+#                 return JsonResponse({"status": "ok"})
+#             return redirect("manage_panel")
+
+#         if wants_json(request):
+#             return JsonResponse({"status": "error", "message": "Required fields missing."}, status=400)
+
+#     return redirect("manage_panel")
+
+@admin_required
+def movie_delete(request, movie_id):
+    movie = get_object_or_404(Movie, id=movie_id)
+    if request.method == "POST":
+        movie.delete()
+    return redirect("manage_panel")
+
+
+
+from . utils import delete_b2_object
+
 @admin_required
 def movie_add(request):
     if request.method == "POST":
@@ -528,9 +608,9 @@ def movie_add(request):
         genre_id = request.POST.get("genre")
         language_id = request.POST.get("language")
         poster = request.FILES.get("poster")
-        video = request.FILES.get("video")
+        video_key = request.POST.get("video_key", "").strip()  # comes from presigned upload step
 
-        if name and duration and description and genre_id and language_id and poster and video:
+        if name and duration and description and genre_id and language_id and poster and video_key:
             Movie.objects.create(
                 name=name,
                 duration=duration,
@@ -538,7 +618,7 @@ def movie_add(request):
                 genre_id=genre_id,
                 language_id=language_id,
                 poster=poster,
-                video=video,
+                video_key=video_key,
             )
             if wants_json(request):
                 return JsonResponse({"status": "ok"})
@@ -562,7 +642,7 @@ def movie_edit(request, movie_id):
         genre_id = request.POST.get("genre")
         language_id = request.POST.get("language")
         poster = request.FILES.get("poster")
-        video = request.FILES.get("video")
+        video_key = request.POST.get("video_key", "").strip()  # empty string = no new video uploaded
 
         if name and duration and description and genre_id and language_id:
             movie.name = name
@@ -573,10 +653,14 @@ def movie_edit(request, movie_id):
 
             if poster:
                 movie.poster = poster
-            if video:
-                movie.video = video
 
-            movie.save()
+            if video_key:
+                old_key = movie.video_key
+                movie.video_key = video_key
+                movie.save()
+                delete_b2_object(old_key)  # clean up the replaced video after saving the new key
+            else:
+                movie.save()
 
             if wants_json(request):
                 return JsonResponse({"status": "ok"})
@@ -587,12 +671,9 @@ def movie_edit(request, movie_id):
 
     return redirect("manage_panel")
 
-@admin_required
-def movie_delete(request, movie_id):
-    movie = get_object_or_404(Movie, id=movie_id)
-    if request.method == "POST":
-        movie.delete()
-    return redirect("manage_panel")
+
+
+
 
 
 # ==================== GENRE ACTIONS ====================

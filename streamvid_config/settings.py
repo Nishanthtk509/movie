@@ -95,6 +95,13 @@ DATABASES = {
     }
 }
 
+# Backblaze B2 (S3-compatible storage)
+B2_KEY_ID = config("B2_KEY_ID")
+B2_APPLICATION_KEY = config("B2_APPLICATION_KEY")
+B2_BUCKET_NAME = config("B2_BUCKET_NAME")
+B2_ENDPOINT_URL = config("B2_ENDPOINT_URL")
+B2_REGION = config("B2_REGION", default="us-west-002")
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators

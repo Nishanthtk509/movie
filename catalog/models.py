@@ -33,8 +33,8 @@ class Movie(models.Model):
     name = models.CharField(max_length=100)
     duration = models.CharField(max_length=10)
 
-    video = models.FileField(upload_to="movies/")
-    poster = models.ImageField(upload_to="posters/")
+    video_key = models.CharField(max_length=500)  # B2 object key, e.g. "videos/uuid-filename.mp4"
+    poster = models.ImageField(upload_to="posters/")  # stays as-is, small file, fine on Django
     description = models.CharField(max_length=500)
 
     language = models.ForeignKey(
@@ -52,6 +52,7 @@ class Movie(models.Model):
     def __str__(self):
         return self.name
 
+        
 
 class WatchHistory(models.Model):
 
