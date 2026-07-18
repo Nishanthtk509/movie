@@ -768,3 +768,28 @@ def user_delete(request, user_id):
     if request.method == "POST":
         user.delete()
     return redirect("manage_panel")
+
+
+from django.http import JsonResponse
+from .b2 import get_b2_client
+from django.conf import settings
+
+def test_b2(request):
+    try:
+        client = get_b2_client()
+
+        buckets = client.list_buckets()
+
+        return JsonResponse({
+            "endpoint": settings.B2_ENDPOINT_URL,
+            "bucket": settings.B2_BUCKET_NAME,
+            "buckets": buckets,
+        }, safe=False)
+
+    except Exception as e:
+        return JsonResponse({
+            "error": str(e),
+            "endpoint": settings.B2_ENDPOINT_URL,
+            "bucket": settings.B2_BUCKET_NAME,
+        })
+

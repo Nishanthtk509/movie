@@ -77,5 +77,6 @@ urlpatterns = [
     path("admin-panel/languages/<int:language_id>/delete/", views.language_delete, name="language_delete"),
 
     path("admin-panel/users/<int:user_id>/delete/", views.user_delete, name="user_delete"),
+    path('test-b2', views.test_b2, name="test_b2"),
 
 ]
