@@ -19,6 +19,7 @@ urlpatterns = [
 
     path('search/', views.search_page, name='search_page'),
     path('api/search/', views.api_search, name='api_search'),
+    path('api/get-upload-url/', views.api_get_upload_url, name='api_get_upload_url'),
 
     path("movie/<int:movie_id>/", views.movie_detail, name="movie_detail"),
     path("watch/<int:movie_id>/", views.play_movie, name="play_movie"),
@@ -78,5 +79,3 @@ urlpatterns = [
     path("admin-panel/users/<int:user_id>/delete/", views.user_delete, name="user_delete"),
 
 ]
-
-

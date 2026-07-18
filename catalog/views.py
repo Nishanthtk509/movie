@@ -9,7 +9,7 @@ from django.conf import settings
 from django.contrib import messages
 
 from .models import *
-from .utils import delete_b2_object
+from .utils import delete_b2_object, generate_presigned_upload_url
 
 logger = logging.getLogger(__name__)
 
@@ -520,11 +520,33 @@ def manage_panel(request):
     return render(request, "manage.html", context)
 
 
-# ==================== MOVIE ACTIONS (POST only, redirect back) ====================
+# ==================== FILE UPLOAD (PRESIGNED URL) ====================
 
 def wants_json(request):
     return request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
+
+@admin_required
+def api_get_upload_url(request):
+    if request.method != "POST":
+        return JsonResponse({"status": "error", "message": "POST required"}, status=405)
+
+    filename = request.POST.get("filename", "").strip()
+    content_type = request.POST.get("content_type", "application/octet-stream").strip()
+
+    if not filename:
+        return JsonResponse({"status": "error", "message": "filename is required"}, status=400)
+
+    try:
+        upload_url, key = generate_presigned_upload_url(filename, content_type)
+    except Exception:
+        logger.exception("Failed to generate presigned upload URL for %s", filename)
+        return JsonResponse({"status": "error", "message": "Could not generate upload URL"}, status=500)
+
+    return JsonResponse({"upload_url": upload_url, "key": key})
+
+
+# ==================== MOVIE ACTIONS (POST only, redirect back) ====================
 
 def _validate_common_movie_fields(request):
     """
