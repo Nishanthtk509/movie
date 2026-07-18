@@ -19,36 +19,45 @@ def get_b2_client():
 def generate_presigned_upload_url(filename, content_type, expires_in=3600):
     """
     Returns (upload_url, key) for a direct-to-B2 PUT upload.
-    The key is randomized so uploaded filenames never collide or leak
-    the original filename.
     """
+
     ext = filename.rsplit(".", 1)[-1] if "." in filename else "bin"
     key = f"movies/{uuid.uuid4().hex}.{ext}"
 
+    # Normalize content type
+    if not content_type:
+        content_type = "application/octet-stream"
+
+    if content_type == "video/matroska":
+        content_type = "video/x-matroska"
+
     client = get_b2_client()
+
     upload_url = client.generate_presigned_url(
-        "put_object",
+        ClientMethod="put_object",
         Params={
             "Bucket": settings.B2_BUCKET_NAME,
             "Key": key,
             "ContentType": content_type,
         },
         ExpiresIn=expires_in,
+        HttpMethod="PUT",
     )
+
     return upload_url, key
 
 
 def delete_b2_object(key):
-    """
-    Deletes an object from B2 by key. Safe to call with an empty/None key
-    (no-op) so callers don't need to guard every call site.
-    """
     if not key:
         return
 
     client = get_b2_client()
+
     try:
-        client.delete_object(Bucket=settings.B2_BUCKET_NAME, Key=key)
+        client.delete_object(
+            Bucket=settings.B2_BUCKET_NAME,
+            Key=key,
+        )
     except Exception:
-        logger.exception("Failed to delete B2 object with key %s", key)
+        logger.exception("Failed to delete B2 object: %s", key)
         raise
