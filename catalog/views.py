@@ -17,9 +17,6 @@ logger = logging.getLogger(__name__)
 # ==================== SESSION DECORATORS ====================
 
 def user_login_required(view_func):
-    """
-    Use on all user-facing views relying on request.session['user_id'].
-    """
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.session.get("user_id"):
@@ -29,9 +26,6 @@ def user_login_required(view_func):
 
 
 def admin_required(view_func):
-    """
-    Use on all admin-facing views relying on request.session['admin_id'].
-    """
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.session.get("admin_id"):
@@ -78,43 +72,26 @@ def admin_login(request):
         password = request.POST.get("password")
 
         if not username or not password:
-
             error = "Please enter username and password."
-
         else:
-
             admin = Admin.objects.filter(username=username).first()
 
             if admin is None:
-
                 error = "Invalid admin credentials."
-
             elif admin.password != password:
-
                 error = "Invalid admin credentials."
-
             else:
-
                 request.session["admin_id"] = admin.id
                 request.session["admin_username"] = admin.username
-
                 return redirect("manage_panel")
 
-    return render(
-        request,
-        "adminlogin.html",
-        {
-            "error": error
-        }
-    )
+    return render(request, "adminlogin.html", {"error": error})
 
 
 @never_cache
 def admin_logout(request):
-
     request.session.pop("admin_id", None)
     request.session.pop("admin_username", None)
-
     return redirect("admin_login")
 
 
@@ -134,35 +111,19 @@ def Register(request):
 
         if not username or not password or not confirm_password:
             error = "All fields are required."
-
         elif len(username) < 3:
             error = "Username must be at least 3 characters."
-
         elif len(password) < 8:
             error = "Password must be at least 8 characters."
-
         elif password != confirm_password:
             error = "Passwords do not match."
-
         elif Signup.objects.filter(username=username).exists():
             error = "Username already exists."
-
         else:
-            Signup.objects.create(
-                username=username,
-                password=password
-            )
-
+            Signup.objects.create(username=username, password=password)
             return redirect("login")
 
-    return render(
-        request,
-        "register.html",
-        {
-            "error": error,
-            "success": success
-        }
-    )
+    return render(request, "register.html", {"error": error, "success": success})
 
 
 # ==================== USER LOGIN / LOGOUT ====================
@@ -178,45 +139,26 @@ def user_login(request):
         password = request.POST.get("password")
 
         if not username or not password:
-
             error = "Please enter username and password."
-
         else:
-
-            user = Signup.objects.filter(
-                username=username
-            ).first()
+            user = Signup.objects.filter(username=username).first()
 
             if user is None:
-
                 error = "Username does not exist."
-
             elif user.password != password:
-
                 error = "Incorrect password."
-
             else:
-
                 request.session["user_id"] = user.id
                 request.session["username"] = user.username
-
                 return redirect("index")
 
-    return render(
-        request,
-        "login.html",
-        {
-            "error": error
-        }
-    )
+    return render(request, "login.html", {"error": error})
 
 
 @never_cache
 def user_logout(request):
-
     request.session.pop("user_id", None)
     request.session.pop("username", None)
-
     return redirect("login")
 
 
@@ -238,13 +180,10 @@ def change_password(request):
 
         if user.password != current_password:
             return render(request, "account.html", {"error": "Current password is incorrect."})
-
         elif new_password != confirm_password:
             return render(request, "account.html", {"error": "New passwords do not match."})
-
         elif not new_password:
             return render(request, "account.html", {"error": "New password cannot be empty."})
-
         else:
             user.password = new_password
             user.save()
@@ -255,10 +194,8 @@ def change_password(request):
 
 def get_logged_in_user(request):
     user_id = request.session.get("user_id")
-
     if not user_id:
         return None
-
     return Signup.objects.filter(id=user_id).first()
 
 
@@ -313,15 +250,11 @@ def movie_detail(request, movie_id):
         user_id=request.session["user_id"]
     ).values_list("movie_id", flat=True)
 
-    return render(
-        request,
-        "movie_detail.html",
-        {
-            "movie": movie,
-            "favorites": favorites,
-            "watch_later": watch_later,
-        },
-    )
+    return render(request, "movie_detail.html", {
+        "movie": movie,
+        "favorites": favorites,
+        "watch_later": watch_later,
+    })
 
 
 # ==================== PLAY MOVIE ====================
@@ -346,55 +279,34 @@ def play_movie(request, movie_id):
 
     related_movies = Movie.objects.filter(
         genre=movie.genre
-    ).exclude(
-        id=movie.id
-    )[:8]
+    ).exclude(id=movie.id)[:8]
 
-    return render(
-        request,
-        "player.html",
-        {
-            "movie": movie,
-            "favorites": favorites,
-            "watch_later": watch_later,
-            "related_movies": related_movies,
-        },
-    )
+    return render(request, "player.html", {
+        "movie": movie,
+        "favorites": favorites,
+        "watch_later": watch_later,
+        "related_movies": related_movies,
+    })
 
 
 # ==================== FAVORITES ====================
 
 @user_login_required
 def add_favorite(request, movie_id):
-
     movie = get_object_or_404(Movie, id=movie_id)
-
-    Favorite.objects.get_or_create(
-        user_id=request.session["user_id"],
-        movie=movie,
-    )
-
+    Favorite.objects.get_or_create(user_id=request.session["user_id"], movie=movie)
     return redirect(request.META.get("HTTP_REFERER", "index"))
 
 
 @user_login_required
 def remove_favorite(request, movie_id):
-
-    Favorite.objects.filter(
-        user_id=request.session["user_id"],
-        movie_id=movie_id,
-    ).delete()
-
+    Favorite.objects.filter(user_id=request.session["user_id"], movie_id=movie_id).delete()
     return redirect(request.META.get("HTTP_REFERER", "favorites"))
 
 
 @user_login_required
 def favorites(request):
-
-    favorites = Favorite.objects.filter(
-        user_id=request.session["user_id"]
-    ).select_related("movie")
-
+    favorites = Favorite.objects.filter(user_id=request.session["user_id"]).select_related("movie")
     return render(request, "favorites.html", {"favorites": favorites})
 
 
@@ -402,45 +314,26 @@ def favorites(request):
 
 @user_login_required
 def add_watch_later(request, movie_id):
-
     movie = get_object_or_404(Movie, id=movie_id)
-
-    WatchLater.objects.get_or_create(
-        user_id=request.session["user_id"],
-        movie=movie,
-    )
-
+    WatchLater.objects.get_or_create(user_id=request.session["user_id"], movie=movie)
     return redirect(request.META.get("HTTP_REFERER", "index"))
 
 
 @user_login_required
 def remove_watch_later(request, movie_id):
-
-    WatchLater.objects.filter(
-        user_id=request.session["user_id"],
-        movie_id=movie_id,
-    ).delete()
-
+    WatchLater.objects.filter(user_id=request.session["user_id"], movie_id=movie_id).delete()
     return redirect(request.META.get("HTTP_REFERER", "watch_later"))
 
 
 @user_login_required
 def watch_later(request):
-
-    movies = WatchLater.objects.filter(
-        user_id=request.session["user_id"]
-    ).select_related("movie")
-
+    movies = WatchLater.objects.filter(user_id=request.session["user_id"]).select_related("movie")
     return render(request, "watchlater.html", {"movies": movies})
 
 
 @user_login_required
 def watch_history(request):
-
-    history = WatchHistory.objects.filter(
-        user_id=request.session["user_id"]
-    ).select_related("movie")
-
+    history = WatchHistory.objects.filter(user_id=request.session["user_id"]).select_related("movie")
     return render(request, "history.html", {"history": history})
 
 
@@ -491,7 +384,7 @@ def api_search(request):
         {
             "id": m.id,
             "name": m.name,
-            "poster": m.poster.url if m.poster and hasattr(m.poster, 'url') else "",
+            "poster": m.poster_key or "",
             "genre": m.genre.name if m.genre else "",
             "language": m.language.name if m.language else "",
         }
@@ -549,10 +442,6 @@ def api_get_upload_url(request):
 # ==================== MOVIE ACTIONS (POST only, redirect back) ====================
 
 def _validate_common_movie_fields(request):
-    """
-    Pulls and validates the shared fields for movie add/edit.
-    Returns (data_dict, error_message). data_dict is None if invalid.
-    """
     name = request.POST.get("name", "").strip()
     duration = request.POST.get("duration", "").strip()
     description = request.POST.get("description", "").strip()
@@ -580,8 +469,8 @@ def _validate_common_movie_fields(request):
 @admin_required
 def movie_add(request):
     if request.method == "POST":
-        poster = request.FILES.get("poster")
-        video_key = request.POST.get("video_key", "").strip()  # comes from presigned upload step
+        poster_key = request.POST.get("poster_key", "").strip()  # comes from presigned upload step
+        video_key = request.POST.get("video_key", "").strip()    # comes from presigned upload step
 
         data, error = _validate_common_movie_fields(request)
 
@@ -591,7 +480,7 @@ def movie_add(request):
             messages.error(request, error)
             return redirect("manage_panel")
 
-        if not poster or not video_key:
+        if not poster_key or not video_key:
             error = "Poster and video are required."
             if wants_json(request):
                 return JsonResponse({"status": "error", "message": error}, status=400)
@@ -605,17 +494,19 @@ def movie_add(request):
                 description=data["description"],
                 genre_id=data["genre_id"],
                 language_id=data["language_id"],
-                poster=poster,
+                poster_key=poster_key,
                 video_key=video_key,
             )
         except Exception:
             logger.exception(
-                "Failed to create movie; attempting to clean up orphaned B2 object %s", video_key
+                "Failed to create movie; attempting to clean up orphaned B2 objects (%s, %s)",
+                poster_key, video_key
             )
-            try:
-                delete_b2_object(video_key)
-            except Exception:
-                logger.exception("Failed to clean up orphaned B2 object %s", video_key)
+            for key in (poster_key, video_key):
+                try:
+                    delete_b2_object(key)
+                except Exception:
+                    logger.exception("Failed to clean up orphaned B2 object %s", key)
 
             error = "Something went wrong while saving the movie."
             if wants_json(request):
@@ -635,8 +526,8 @@ def movie_edit(request, movie_id):
     movie = get_object_or_404(Movie, id=movie_id)
 
     if request.method == "POST":
-        poster = request.FILES.get("poster")
-        video_key = request.POST.get("video_key", "").strip()  # empty string = no new video uploaded
+        poster_key = request.POST.get("poster_key", "").strip()  # empty = no new poster uploaded
+        video_key = request.POST.get("video_key", "").strip()    # empty = no new video uploaded
 
         data, error = _validate_common_movie_fields(request)
 
@@ -652,12 +543,14 @@ def movie_edit(request, movie_id):
         movie.genre_id = data["genre_id"]
         movie.language_id = data["language_id"]
 
-        if poster:
-            movie.poster = poster
+        old_poster_key = None
+        if poster_key:
+            old_poster_key = movie.poster_key
+            movie.poster_key = poster_key
 
-        old_key = None
+        old_video_key = None
         if video_key:
-            old_key = movie.video_key
+            old_video_key = movie.video_key
             movie.video_key = video_key
 
         try:
@@ -670,15 +563,14 @@ def movie_edit(request, movie_id):
             messages.error(request, error)
             return redirect("manage_panel")
 
-        if old_key:
-            try:
-                delete_b2_object(old_key)
-            except Exception:
-                # DB is already correctly updated at this point, so don't fail
-                # the request over cleanup — just log it for a retry/cron job.
-                logger.exception(
-                    "Failed to delete replaced B2 object %s for movie %s", old_key, movie_id
-                )
+        for old_key in (old_poster_key, old_video_key):
+            if old_key:
+                try:
+                    delete_b2_object(old_key)
+                except Exception:
+                    logger.exception(
+                        "Failed to delete replaced B2 object %s for movie %s", old_key, movie_id
+                    )
 
         if wants_json(request):
             return JsonResponse({"status": "ok"})
@@ -691,12 +583,14 @@ def movie_edit(request, movie_id):
 def movie_delete(request, movie_id):
     movie = get_object_or_404(Movie, id=movie_id)
     if request.method == "POST":
-        old_key = movie.video_key
+        old_poster_key = movie.poster_key
+        old_video_key = movie.video_key
         movie.delete()
-        try:
-            delete_b2_object(old_key)
-        except Exception:
-            logger.exception("Failed to delete B2 object %s for deleted movie %s", old_key, movie_id)
+        for old_key in (old_poster_key, old_video_key):
+            try:
+                delete_b2_object(old_key)
+            except Exception:
+                logger.exception("Failed to delete B2 object %s for deleted movie %s", old_key, movie_id)
     return redirect("manage_panel")
 
 
@@ -770,26 +664,4 @@ def user_delete(request, user_id):
     return redirect("manage_panel")
 
 
-from django.http import JsonResponse
-from .b2 import get_b2_client
-from django.conf import settings
-
-def test_b2(request):
-    try:
-        client = get_b2_client()
-
-        buckets = client.list_buckets()
-
-        return JsonResponse({
-            "endpoint": settings.B2_ENDPOINT_URL,
-            "bucket": settings.B2_BUCKET_NAME,
-            "buckets": buckets,
-        }, safe=False)
-
-    except Exception as e:
-        return JsonResponse({
-            "error": str(e),
-            "endpoint": settings.B2_ENDPOINT_URL,
-            "bucket": settings.B2_BUCKET_NAME,
-        })
-
+    

@@ -1,11 +1,13 @@
 from django.db import models
 
+
 class Admin(models.Model):
     username = models.CharField(max_length=100, unique=True)
     password = models.CharField(max_length=255)
 
     def __str__(self):
         return self.username
+
 
 class Signup(models.Model):
     username = models.CharField(max_length=100, unique=True)
@@ -29,13 +31,12 @@ class Language(models.Model):
         return self.name
 
 
-
 class Movie(models.Model):
     name = models.CharField(max_length=100)
     duration = models.CharField(max_length=10)
 
-    video_key = models.CharField(max_length=255, default="", blank=True)  # B2 object key, not a Django FileField
-    poster = models.ImageField(upload_to="posters/")
+    video_key = models.CharField(max_length=255, default="", blank=True)   # B2 object key
+    poster_key = models.CharField(max_length=255, default="", blank=True)  # B2 object key, replaces ImageField
     description = models.CharField(max_length=500)
 
     language = models.ForeignKey(
@@ -52,23 +53,13 @@ class Movie(models.Model):
 
     def __str__(self):
         return self.name
+
+
 class WatchHistory(models.Model):
-
-    user = models.ForeignKey(
-        Signup,
-        on_delete=models.CASCADE,
-        related_name="watch_history"
-    )
-
-    movie = models.ForeignKey(
-        Movie,
-        on_delete=models.CASCADE
-    )
-
+    user = models.ForeignKey(Signup, on_delete=models.CASCADE, related_name="watch_history")
+    movie = models.ForeignKey(Movie, on_delete=models.CASCADE)
     watched_at = models.DateTimeField(auto_now=True)
-
     progress = models.PositiveIntegerField(default=0)
-
     completed = models.BooleanField(default=False)
 
     class Meta:
@@ -77,39 +68,18 @@ class WatchHistory(models.Model):
 
 
 class Favorite(models.Model):
-
-    user = models.ForeignKey(
-        Signup,
-        on_delete=models.CASCADE,
-        related_name="favorites"
-    )
-
-    movie = models.ForeignKey(
-        Movie,
-        on_delete=models.CASCADE
-    )
-
+    user = models.ForeignKey(Signup, on_delete=models.CASCADE, related_name="favorites")
+    movie = models.ForeignKey(Movie, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = ("user", "movie")
+
 
 class WatchLater(models.Model):
-
-    user = models.ForeignKey(
-        Signup,
-        on_delete=models.CASCADE,
-        related_name="watch_later"
-    )
-
-    movie = models.ForeignKey(
-        Movie,
-        on_delete=models.CASCADE
-    )
-
+    user = models.ForeignKey(Signup, on_delete=models.CASCADE, related_name="watch_later")
+    movie = models.ForeignKey(Movie, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = ("user", "movie")
-
-
