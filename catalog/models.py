@@ -34,7 +34,7 @@ class Movie(models.Model):
     name = models.CharField(max_length=100)
     duration = models.CharField(max_length=10)
 
-    video_key = models.CharField(max_length=255)  # B2 object key, not a Django FileField
+    video_key = models.CharField(max_length=255, default="", blank=True)  # B2 object key, not a Django FileField
     poster = models.ImageField(upload_to="posters/")
     description = models.CharField(max_length=500)
 
