@@ -35,8 +35,8 @@ class Movie(models.Model):
     name = models.CharField(max_length=100)
     duration = models.CharField(max_length=10)
 
-    video_key = models.CharField(max_length=255, default="", blank=True)   # B2 object key
-    poster_key = models.CharField(max_length=255, default="", blank=True)  # B2 object key, replaces ImageField
+    video = models.FileField(upload_to="movies/")
+    poster = models.ImageField(upload_to="posters/")
     description = models.CharField(max_length=500)
 
     language = models.ForeignKey(

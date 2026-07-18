@@ -9,7 +9,6 @@ from django.conf import settings
 from django.contrib import messages
 
 from .models import *
-from .utils import delete_b2_object, generate_presigned_upload_url
 
 logger = logging.getLogger(__name__)
 
@@ -384,7 +383,7 @@ def api_search(request):
         {
             "id": m.id,
             "name": m.name,
-            "poster": m.poster_key or "",
+            "poster": m.poster.url if m.poster and hasattr(m.poster, 'url') else "",
             "genre": m.genre.name if m.genre else "",
             "language": m.language.name if m.language else "",
         }
@@ -413,33 +412,11 @@ def manage_panel(request):
     return render(request, "manage.html", context)
 
 
-# ==================== FILE UPLOAD (PRESIGNED URL) ====================
+# ==================== MOVIE ACTIONS (POST only, redirect back) ====================
 
 def wants_json(request):
     return request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
-
-@admin_required
-def api_get_upload_url(request):
-    if request.method != "POST":
-        return JsonResponse({"status": "error", "message": "POST required"}, status=405)
-
-    filename = request.POST.get("filename", "").strip()
-    content_type = request.POST.get("content_type", "application/octet-stream").strip()
-
-    if not filename:
-        return JsonResponse({"status": "error", "message": "filename is required"}, status=400)
-
-    try:
-        upload_url, key = generate_presigned_upload_url(filename, content_type)
-    except Exception:
-        logger.exception("Failed to generate presigned upload URL for %s", filename)
-        return JsonResponse({"status": "error", "message": "Could not generate upload URL"}, status=500)
-
-    return JsonResponse({"upload_url": upload_url, "key": key})
-
-
-# ==================== MOVIE ACTIONS (POST only, redirect back) ====================
 
 def _validate_common_movie_fields(request):
     name = request.POST.get("name", "").strip()
@@ -469,8 +446,8 @@ def _validate_common_movie_fields(request):
 @admin_required
 def movie_add(request):
     if request.method == "POST":
-        poster_key = request.POST.get("poster_key", "").strip()  # comes from presigned upload step
-        video_key = request.POST.get("video_key", "").strip()    # comes from presigned upload step
+        poster = request.FILES.get("poster")
+        video = request.FILES.get("video")
 
         data, error = _validate_common_movie_fields(request)
 
@@ -480,7 +457,7 @@ def movie_add(request):
             messages.error(request, error)
             return redirect("manage_panel")
 
-        if not poster_key or not video_key:
+        if not poster or not video:
             error = "Poster and video are required."
             if wants_json(request):
                 return JsonResponse({"status": "error", "message": error}, status=400)
@@ -494,20 +471,11 @@ def movie_add(request):
                 description=data["description"],
                 genre_id=data["genre_id"],
                 language_id=data["language_id"],
-                poster_key=poster_key,
-                video_key=video_key,
+                poster=poster,
+                video=video,
             )
         except Exception:
-            logger.exception(
-                "Failed to create movie; attempting to clean up orphaned B2 objects (%s, %s)",
-                poster_key, video_key
-            )
-            for key in (poster_key, video_key):
-                try:
-                    delete_b2_object(key)
-                except Exception:
-                    logger.exception("Failed to clean up orphaned B2 object %s", key)
-
+            logger.exception("Failed to create movie")
             error = "Something went wrong while saving the movie."
             if wants_json(request):
                 return JsonResponse({"status": "error", "message": error}, status=500)
@@ -526,8 +494,8 @@ def movie_edit(request, movie_id):
     movie = get_object_or_404(Movie, id=movie_id)
 
     if request.method == "POST":
-        poster_key = request.POST.get("poster_key", "").strip()  # empty = no new poster uploaded
-        video_key = request.POST.get("video_key", "").strip()    # empty = no new video uploaded
+        poster = request.FILES.get("poster")
+        video = request.FILES.get("video")
 
         data, error = _validate_common_movie_fields(request)
 
@@ -543,15 +511,11 @@ def movie_edit(request, movie_id):
         movie.genre_id = data["genre_id"]
         movie.language_id = data["language_id"]
 
-        old_poster_key = None
-        if poster_key:
-            old_poster_key = movie.poster_key
-            movie.poster_key = poster_key
+        if poster:
+            movie.poster = poster
 
-        old_video_key = None
-        if video_key:
-            old_video_key = movie.video_key
-            movie.video_key = video_key
+        if video:
+            movie.video = video
 
         try:
             movie.save()
@@ -562,15 +526,6 @@ def movie_edit(request, movie_id):
                 return JsonResponse({"status": "error", "message": error}, status=500)
             messages.error(request, error)
             return redirect("manage_panel")
-
-        for old_key in (old_poster_key, old_video_key):
-            if old_key:
-                try:
-                    delete_b2_object(old_key)
-                except Exception:
-                    logger.exception(
-                        "Failed to delete replaced B2 object %s for movie %s", old_key, movie_id
-                    )
 
         if wants_json(request):
             return JsonResponse({"status": "ok"})
@@ -583,14 +538,7 @@ def movie_edit(request, movie_id):
 def movie_delete(request, movie_id):
     movie = get_object_or_404(Movie, id=movie_id)
     if request.method == "POST":
-        old_poster_key = movie.poster_key
-        old_video_key = movie.video_key
         movie.delete()
-        for old_key in (old_poster_key, old_video_key):
-            try:
-                delete_b2_object(old_key)
-            except Exception:
-                logger.exception("Failed to delete B2 object %s for deleted movie %s", old_key, movie_id)
     return redirect("manage_panel")
 
 
@@ -662,6 +610,3 @@ def user_delete(request, user_id):
     if request.method == "POST":
         user.delete()
     return redirect("manage_panel")
-
-
-    

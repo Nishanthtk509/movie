@@ -22,8 +22,6 @@
   .tab-section { display: none; }
   .tab-section.active { display: block; }
   .poster-thumb { width: 45px; height: 65px; object-fit: cover; border-radius: 4px; }
-  .upload-progress-wrap { display: none; }
-  .upload-status-text { font-size: 0.85rem; }
 </style>
 </head>
 <body>
@@ -204,7 +202,7 @@
 <!-- ADD MOVIE -->
 <div class="modal fade" id="addMovieModal" tabindex="-1">
   <div class="modal-dialog">
-    <form class="ajax-upload-form modal-content" data-url="{% url 'movie_add' %}" enctype="multipart/form-data">
+    <form method="POST" action="{% url 'movie_add' %}" enctype="multipart/form-data" class="modal-content">
       {% csrf_token %}
       <div class="modal-header">
         <h5 class="modal-title">Add Movie</h5>
@@ -232,13 +230,6 @@
         </div>
         <div class="mb-3"><label class="form-label">Poster</label><input type="file" name="poster" class="form-control" required></div>
         <div class="mb-3"><label class="form-label">Video</label><input type="file" name="video" class="form-control" required></div>
-
-        <div class="mb-2 upload-progress-wrap">
-          <div class="progress" style="height: 20px;">
-            <div class="progress-bar bg-dark upload-progress-bar" role="progressbar" style="width: 0%;">0%</div>
-          </div>
-          <div class="form-text upload-status-text">Uploading...</div>
-        </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -252,7 +243,7 @@
 {% for movie in movies %}
 <div class="modal fade" id="editMovieModal{{ movie.id }}" tabindex="-1">
   <div class="modal-dialog">
-    <form class="ajax-upload-form modal-content" data-url="{% url 'movie_edit' movie.id %}" enctype="multipart/form-data">
+    <form method="POST" action="{% url 'movie_edit' movie.id %}" enctype="multipart/form-data" class="modal-content">
       {% csrf_token %}
       <div class="modal-header">
         <h5 class="modal-title">Edit Movie</h5>
@@ -283,13 +274,6 @@
         <div class="mb-3">
           <label class="form-label">Video (leave blank to keep current)</label>
           <input type="file" name="video" class="form-control">
-        </div>
-
-        <div class="mb-2 upload-progress-wrap">
-          <div class="progress" style="height: 20px;">
-            <div class="progress-bar bg-dark upload-progress-bar" role="progressbar" style="width: 0%;">0%</div>
-          </div>
-          <div class="form-text upload-status-text">Uploading...</div>
         </div>
       </div>
       <div class="modal-footer">
@@ -477,172 +461,6 @@ function showTab(tab) {
 document.addEventListener('DOMContentLoaded', function () {
   const hash = window.location.hash.replace('#', '');
   if (hash) showTab(hash);
-});
-
-// ---------------- HELPERS ----------------
-
-function formatBytes(bytes) {
-  if (bytes >= 1024 * 1024 * 1024) return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
-  if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
-  if (bytes >= 1024) return (bytes / 1024).toFixed(2) + ' KB';
-  return bytes + ' B';
-}
-
-function getCsrfToken(form) {
-  const input = form.querySelector('input[name="csrfmiddlewaretoken"]');
-  return input ? input.value : '';
-}
-
-// Uploads a file straight to B2 via a presigned PUT URL, reporting progress.
-function uploadFileToB2(file, presignedUrl, onProgress) {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('PUT', presignedUrl, true);
-    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
-
-    xhr.upload.addEventListener('progress', function (event) {
-      if (event.lengthComputable) onProgress(event.loaded, event.total);
-    });
-
-    xhr.onload = function () {
-      if (xhr.status >= 200 && xhr.status < 300) resolve();
-      else reject(new Error('B2 upload failed with status ' + xhr.status));
-    };
-    xhr.onerror = function () { reject(new Error('Network error during B2 upload')); };
-    xhr.send(file);
-  });
-}
-
-// Asks Django for a presigned upload URL + object key for a given file.
-async function getPresignedUploadUrl(form, file) {
-  const res = await fetch('/api/get-upload-url/', {
-    method: 'POST',
-    headers: {
-      'X-Requested-With': 'XMLHttpRequest',
-      'X-CSRFToken': getCsrfToken(form),
-    },
-    body: new URLSearchParams({
-      filename: file.name,
-      content_type: file.type || 'application/octet-stream',
-    }),
-  });
-  if (!res.ok) throw new Error('Could not get upload URL');
-  return res.json(); // { upload_url, key }
-}
-
-// ---------------- MOVIE ADD / EDIT UPLOAD FLOW ----------------
-
-document.querySelectorAll('.ajax-upload-form').forEach(function (form) {
-
-  form.addEventListener('submit', async function (e) {
-    e.preventDefault();
-
-    const url = form.dataset.url;
-    const modalEl = form.closest('.modal');
-    const videoInput = form.querySelector('input[name="video"]');
-    const videoFile = videoInput && videoInput.files.length ? videoInput.files[0] : null;
-
-    const progressWrap = form.querySelector('.upload-progress-wrap');
-    const progressBar = form.querySelector('.upload-progress-bar');
-    const statusText = form.querySelector('.upload-status-text');
-    const submitBtn = form.querySelector('button[type="submit"]');
-    const cancelBtn = form.querySelector('[data-bs-dismiss="modal"]');
-    const closeBtn = form.querySelector('.btn-close');
-
-    function lockModal() {
-      modalEl.setAttribute('data-bs-backdrop', 'static');
-      modalEl.setAttribute('data-bs-keyboard', 'false');
-      submitBtn.disabled = true;
-      if (cancelBtn) cancelBtn.disabled = true;
-      if (closeBtn) closeBtn.disabled = true;
-    }
-
-    function unlockModal() {
-      modalEl.setAttribute('data-bs-backdrop', 'true');
-      modalEl.setAttribute('data-bs-keyboard', 'true');
-      submitBtn.disabled = false;
-      if (cancelBtn) cancelBtn.disabled = false;
-      if (closeBtn) closeBtn.disabled = false;
-    }
-
-    function showError(message) {
-      unlockModal();
-      statusText.textContent = message;
-      progressBar.classList.remove('bg-dark');
-      progressBar.classList.add('bg-danger');
-    }
-
-    lockModal();
-    progressWrap.style.display = 'block';
-    progressBar.classList.remove('bg-danger');
-    progressBar.classList.add('bg-dark');
-    progressBar.style.width = '0%';
-    progressBar.textContent = '0%';
-
-    let videoKey = '';
-
-    try {
-      if (videoFile) {
-        statusText.textContent = 'Preparing upload...';
-        const { upload_url, key } = await getPresignedUploadUrl(form, videoFile);
-        videoKey = key;
-
-        let lastLoaded = 0;
-        let lastTime = Date.now();
-
-        await uploadFileToB2(videoFile, upload_url, function (loaded, total) {
-          const percent = Math.round((loaded / total) * 100);
-          progressBar.style.width = percent + '%';
-          progressBar.textContent = percent + '%';
-
-          const now = Date.now();
-          const elapsedSec = (now - lastTime) / 1000;
-          let speedStr = '';
-          if (elapsedSec > 0.5) {
-            const bytesPerSec = (loaded - lastLoaded) / elapsedSec;
-            if (bytesPerSec > 0) speedStr = ' • ' + formatBytes(bytesPerSec) + '/s';
-            lastLoaded = loaded;
-            lastTime = now;
-          }
-
-          statusText.textContent = percent < 100
-            ? 'Uploading video: ' + formatBytes(loaded) + ' / ' + formatBytes(total) +
-              ' (' + formatBytes(total - loaded) + ' remaining)' + speedStr
-            : 'Video uploaded. Saving movie details...';
-        });
-      } else {
-        statusText.textContent = 'Saving movie details...';
-      }
-
-      // Build the final form submission: poster (if any) + metadata + video_key
-      const formData = new FormData(form);
-      formData.delete('video'); // never send the raw video file to Django
-      formData.append('video_key', videoKey); // empty string if no new video was chosen
-
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'X-Requested-With': 'XMLHttpRequest' },
-        body: formData,
-      });
-
-      if (res.ok) {
-        statusText.textContent = 'Done! Refreshing...';
-        window.location.href = window.location.pathname + '#movies';
-        window.location.reload();
-      } else {
-        let message = 'Save failed. Please try again.';
-        try {
-          const data = await res.json();
-          if (data.message) message = data.message;
-        } catch (err) {}
-        showError(message);
-      }
-
-    } catch (err) {
-      showError(err.message || 'Something went wrong. Please try again.');
-    }
-  });
-
 });
 </script>
 
