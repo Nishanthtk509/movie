@@ -1,10 +1,17 @@
+import logging
 from functools import wraps
+
 from django.shortcuts import render, get_object_or_404, redirect
 from django.db.models import Q, Count
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.cache import never_cache
 from django.conf import settings
+from django.contrib import messages
+
 from .models import *
+from .utils import delete_b2_object
+
+logger = logging.getLogger(__name__)
 
 
 # ==================== SESSION DECORATORS ====================
@@ -514,118 +521,89 @@ def manage_panel(request):
 
 
 # ==================== MOVIE ACTIONS (POST only, redirect back) ====================
+
 def wants_json(request):
     return request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
 
-# @admin_required
-# def movie_add(request):
-#     if request.method == "POST":
+def _validate_common_movie_fields(request):
+    """
+    Pulls and validates the shared fields for movie add/edit.
+    Returns (data_dict, error_message). data_dict is None if invalid.
+    """
+    name = request.POST.get("name", "").strip()
+    duration = request.POST.get("duration", "").strip()
+    description = request.POST.get("description", "").strip()
+    genre_id = request.POST.get("genre")
+    language_id = request.POST.get("language")
 
-#         name = request.POST.get("name", "").strip()
-#         duration = request.POST.get("duration", "").strip()
-#         description = request.POST.get("description", "").strip()
-#         genre_id = request.POST.get("genre")
-#         language_id = request.POST.get("language")
-#         poster = request.FILES.get("poster")
-#         video = request.FILES.get("video")
+    if not (name and duration and description and genre_id and language_id):
+        return None, "All fields are required."
 
-#         if name and duration and description and genre_id and language_id and poster and video:
-#             Movie.objects.create(
-#                 name=name,
-#                 duration=duration,
-#                 description=description,
-#                 genre_id=genre_id,
-#                 language_id=language_id,
-#                 poster=poster,
-#                 video=video,
-#             )
-#             if wants_json(request):
-#                 return JsonResponse({"status": "ok"})
-#             return redirect("manage_panel")
+    if not Genre.objects.filter(id=genre_id).exists():
+        return None, "Invalid genre selected."
 
-#         if wants_json(request):
-#             return JsonResponse({"status": "error", "message": "All fields are required."}, status=400)
+    if not Language.objects.filter(id=language_id).exists():
+        return None, "Invalid language selected."
 
-#     return redirect("manage_panel")
+    return {
+        "name": name,
+        "duration": duration,
+        "description": description,
+        "genre_id": genre_id,
+        "language_id": language_id,
+    }, None
 
-
-# @admin_required
-# def movie_edit(request, movie_id):
-#     movie = get_object_or_404(Movie, id=movie_id)
-
-#     if request.method == "POST":
-
-#         name = request.POST.get("name", "").strip()
-#         duration = request.POST.get("duration", "").strip()
-#         description = request.POST.get("description", "").strip()
-#         genre_id = request.POST.get("genre")
-#         language_id = request.POST.get("language")
-#         poster = request.FILES.get("poster")
-#         video = request.FILES.get("video")
-
-#         if name and duration and description and genre_id and language_id:
-#             movie.name = name
-#             movie.duration = duration
-#             movie.description = description
-#             movie.genre_id = genre_id
-#             movie.language_id = language_id
-
-#             if poster:
-#                 movie.poster = poster
-#             if video:
-#                 movie.video = video
-
-#             movie.save()
-
-#             if wants_json(request):
-#                 return JsonResponse({"status": "ok"})
-#             return redirect("manage_panel")
-
-#         if wants_json(request):
-#             return JsonResponse({"status": "error", "message": "Required fields missing."}, status=400)
-
-#     return redirect("manage_panel")
-
-@admin_required
-def movie_delete(request, movie_id):
-    movie = get_object_or_404(Movie, id=movie_id)
-    if request.method == "POST":
-        movie.delete()
-    return redirect("manage_panel")
-
-
-
-from . utils import delete_b2_object
 
 @admin_required
 def movie_add(request):
     if request.method == "POST":
-
-        name = request.POST.get("name", "").strip()
-        duration = request.POST.get("duration", "").strip()
-        description = request.POST.get("description", "").strip()
-        genre_id = request.POST.get("genre")
-        language_id = request.POST.get("language")
         poster = request.FILES.get("poster")
         video_key = request.POST.get("video_key", "").strip()  # comes from presigned upload step
 
-        if name and duration and description and genre_id and language_id and poster and video_key:
+        data, error = _validate_common_movie_fields(request)
+
+        if data is None:
+            if wants_json(request):
+                return JsonResponse({"status": "error", "message": error}, status=400)
+            messages.error(request, error)
+            return redirect("manage_panel")
+
+        if not poster or not video_key:
+            error = "Poster and video are required."
+            if wants_json(request):
+                return JsonResponse({"status": "error", "message": error}, status=400)
+            messages.error(request, error)
+            return redirect("manage_panel")
+
+        try:
             Movie.objects.create(
-                name=name,
-                duration=duration,
-                description=description,
-                genre_id=genre_id,
-                language_id=language_id,
+                name=data["name"],
+                duration=data["duration"],
+                description=data["description"],
+                genre_id=data["genre_id"],
+                language_id=data["language_id"],
                 poster=poster,
                 video_key=video_key,
             )
+        except Exception:
+            logger.exception(
+                "Failed to create movie; attempting to clean up orphaned B2 object %s", video_key
+            )
+            try:
+                delete_b2_object(video_key)
+            except Exception:
+                logger.exception("Failed to clean up orphaned B2 object %s", video_key)
+
+            error = "Something went wrong while saving the movie."
             if wants_json(request):
-                return JsonResponse({"status": "ok"})
+                return JsonResponse({"status": "error", "message": error}, status=500)
+            messages.error(request, error)
             return redirect("manage_panel")
 
         if wants_json(request):
-            return JsonResponse({"status": "error", "message": "All fields are required."}, status=400)
+            return JsonResponse({"status": "ok"})
+        return redirect("manage_panel")
 
     return redirect("manage_panel")
 
@@ -635,45 +613,69 @@ def movie_edit(request, movie_id):
     movie = get_object_or_404(Movie, id=movie_id)
 
     if request.method == "POST":
-
-        name = request.POST.get("name", "").strip()
-        duration = request.POST.get("duration", "").strip()
-        description = request.POST.get("description", "").strip()
-        genre_id = request.POST.get("genre")
-        language_id = request.POST.get("language")
         poster = request.FILES.get("poster")
         video_key = request.POST.get("video_key", "").strip()  # empty string = no new video uploaded
 
-        if name and duration and description and genre_id and language_id:
-            movie.name = name
-            movie.duration = duration
-            movie.description = description
-            movie.genre_id = genre_id
-            movie.language_id = language_id
+        data, error = _validate_common_movie_fields(request)
 
-            if poster:
-                movie.poster = poster
-
-            if video_key:
-                old_key = movie.video_key
-                movie.video_key = video_key
-                movie.save()
-                delete_b2_object(old_key)  # clean up the replaced video after saving the new key
-            else:
-                movie.save()
-
+        if data is None:
             if wants_json(request):
-                return JsonResponse({"status": "ok"})
+                return JsonResponse({"status": "error", "message": error}, status=400)
+            messages.error(request, error)
             return redirect("manage_panel")
 
+        movie.name = data["name"]
+        movie.duration = data["duration"]
+        movie.description = data["description"]
+        movie.genre_id = data["genre_id"]
+        movie.language_id = data["language_id"]
+
+        if poster:
+            movie.poster = poster
+
+        old_key = None
+        if video_key:
+            old_key = movie.video_key
+            movie.video_key = video_key
+
+        try:
+            movie.save()
+        except Exception:
+            logger.exception("Failed to save movie %s", movie_id)
+            error = "Something went wrong while saving the movie."
+            if wants_json(request):
+                return JsonResponse({"status": "error", "message": error}, status=500)
+            messages.error(request, error)
+            return redirect("manage_panel")
+
+        if old_key:
+            try:
+                delete_b2_object(old_key)
+            except Exception:
+                # DB is already correctly updated at this point, so don't fail
+                # the request over cleanup — just log it for a retry/cron job.
+                logger.exception(
+                    "Failed to delete replaced B2 object %s for movie %s", old_key, movie_id
+                )
+
         if wants_json(request):
-            return JsonResponse({"status": "error", "message": "Required fields missing."}, status=400)
+            return JsonResponse({"status": "ok"})
+        return redirect("manage_panel")
 
     return redirect("manage_panel")
 
 
-
-
+@admin_required
+def movie_delete(request, movie_id):
+    movie = get_object_or_404(Movie, id=movie_id)
+    if request.method == "POST":
+        old_key = movie.video_key
+        movie.delete()
+        try:
+            delete_b2_object(old_key)
+        except Exception:
+            logger.exception("Failed to delete B2 object %s for deleted movie %s", old_key, movie_id)
+    return redirect("manage_panel")
 
 
 # ==================== GENRE ACTIONS ====================
